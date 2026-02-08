@@ -15,9 +15,20 @@ export class InputSystem {
         window.addEventListener('mousemove', (e) => this.handleMouseMove(e));
         window.addEventListener('mousedown', (e) => this.handleMouse(e));
         window.addEventListener('keydown', (e) => this.handleKey(e));
+        window.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+
+        this.isShiftPressed = false;
+        this.isDragging = false;
+        this.dragStart = null;
+    }
+
+    handleKeyUp(e) {
+        if (e.key === 'Shift') this.isShiftPressed = false;
     }
 
     handleKey(e) {
+        if (e.key === 'Shift') this.isShiftPressed = true;
+
         // Interceptar si estamos rebindeando una tecla en el menú de UI
         if (this.game.uiSystem.waitingForKey) {
             this.game.uiSystem.applyRebind(e.key);
@@ -36,10 +47,24 @@ export class InputSystem {
         const C = CONFIG.CONTROLS;
 
         if (k === C.VIEW_NORMAL) { Store.viewMode = 'normal'; Store.layerView = 'normal'; }
-        if (k === C.VIEW_THERMAL) { Store.viewMode = 'temperature'; Store.layerView = 'normal'; }
-        if (k === C.VIEW_ELECTRIC) { Store.viewMode = 'electricity'; Store.layerView = 'normal'; }
-        if (k === C.VIEW_NOISE) { Store.viewMode = 'noise'; Store.layerView = 'normal'; }
-        if (k === C.VIEW_DIRT) { Store.viewMode = 'dirt'; Store.layerView = 'normal'; }
+
+        // Smart Toggles
+        if (k === C.VIEW_THERMAL) {
+            Store.viewMode = (Store.viewMode === 'temperature') ? 'normal' : 'temperature';
+            Store.layerView = 'normal';
+        }
+        if (k === C.VIEW_ELECTRIC) {
+            Store.viewMode = (Store.viewMode === 'electricity') ? 'normal' : 'electricity';
+            Store.layerView = 'normal';
+        }
+        if (k === C.VIEW_NOISE) {
+            Store.viewMode = (Store.viewMode === 'noise') ? 'normal' : 'noise';
+            Store.layerView = 'normal';
+        }
+        if (k === C.VIEW_DIRT) {
+            Store.viewMode = (Store.viewMode === 'dirt') ? 'normal' : 'dirt';
+            Store.layerView = 'normal';
+        }
 
         if (k === C.LAYER_NORMAL) { Store.layerView = 'normal'; Store.viewMode = 'normal'; }
         if (k === C.LAYER_SUBSOIL) { Store.layerView = 'subsoil'; Store.viewMode = 'normal'; }
@@ -75,17 +100,48 @@ export class InputSystem {
         if (Utils.isValid(gx, gy)) {
             Store.hover.x = gx;
             Store.hover.y = gy;
+
+            // Logic de Drag Line
+            if (this.isDragging && this.dragStart) {
+                const dx = gx - this.dragStart.x;
+                const dy = gy - this.dragStart.y;
+                let endX = gx;
+                let endY = gy;
+
+                // Bloqueo de eje
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    endY = this.dragStart.y; // Horizontal
+                } else {
+                    endX = this.dragStart.x; // Vertical
+                }
+
+                Store.dragLine = { start: this.dragStart, end: { x: endX, y: endY } };
+            } else {
+                Store.dragLine = null;
+            }
+
             this.updateHoverValidity();
         } else {
             Store.hover.x = -1;
             Store.hover.y = -1;
             Store.hover.valid = false;
+            Store.dragLine = null;
         }
     }
 
     updateHoverValidity() {
         const status = this.getBuildStatus(Store.hover.x, Store.hover.y);
         Store.hover.valid = status.canBuild;
+    }
+
+    handleMouseUp(e) {
+        if (this.isDragging) {
+            this.isDragging = false;
+            if (Store.dragLine) {
+                this.executeLineBuild(Store.dragLine);
+                Store.dragLine = null;
+            }
+        }
     }
 
     handleMouse(e) {
@@ -98,6 +154,13 @@ export class InputSystem {
         if (e.button === 2) {
             this.handleDelete(Store.hover.x, Store.hover.y);
             return;
+        }
+
+        // Line Building Start
+        if (this.isShiftPressed && e.button === 0 && Store.buildMode) {
+            this.isDragging = true;
+            this.dragStart = { x: Store.hover.x, y: Store.hover.y };
+            return; // No construimos aún, esperamos al release
         }
 
         // Lógica de Selección (Inspector)
@@ -309,5 +372,25 @@ export class InputSystem {
         }
         const toDelete = entities.find(id => !this.ecs.components.socket?.has(id));
         if (toDelete) this.ecs.removeEntity(toDelete);
+    }
+
+    executeLineBuild(line) {
+        const start = line.start;
+        const end = line.end;
+
+        // Determinar dirección y rango
+        const minX = Math.min(start.x, end.x);
+        const maxX = Math.max(start.x, end.x);
+        const minY = Math.min(start.y, end.y);
+        const maxY = Math.max(start.y, end.y);
+
+        for (let x = minX; x <= maxX; x++) {
+            for (let y = minY; y <= maxY; y++) {
+                const status = this.getBuildStatus(x, y);
+                if (status.canBuild) {
+                    this.executeBuild(x, y, status);
+                }
+            }
+        }
     }
 }

@@ -64,6 +64,39 @@ function drawDiamond(ctx, x, y, color, strokeColor) {
 }
 
 export function drawGhost(ctx, mode, x, y, isValid, rotation) {
+    // Si hay una línea de arrastre, dibujamos múltiples fantasmas
+    if (Store.dragLine) {
+        const start = Store.dragLine.start;
+        const end = Store.dragLine.end;
+        const minX = Math.min(start.x, end.x);
+        const maxX = Math.max(start.x, end.x);
+        const minY = Math.min(start.y, end.y);
+        const maxY = Math.max(start.y, end.y);
+
+        let count = 0;
+        for (let ix = minX; ix <= maxX; ix++) {
+            for (let iy = minY; iy <= maxY; iy++) {
+                drawSingleGhost(ctx, mode, ix, iy, isValid, rotation);
+                count++;
+            }
+        }
+
+        // Mostrar costo total flotante
+        // Estimación rápida del precio (asumiendo que 'isValid' es true globalmente o recalcularlo)
+        // El precio depende del item. Obtenemos precio unitario del Hardware seleccionado si es minero.
+        // O precio hardcodeado si es otra cosa.
+        // Simplificación: Mostrar "Count: N"
+        const p = gridToScreen(end.x, end.y);
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 14px monospace';
+        ctx.fillText(`${count}x`, p.x + 20, p.y);
+
+    } else {
+        drawSingleGhost(ctx, mode, x, y, isValid, rotation);
+    }
+}
+
+function drawSingleGhost(ctx, mode, x, y, isValid, rotation) {
     const p = gridToScreen(x, y);
     ctx.save();
     ctx.globalAlpha = 0.6;
