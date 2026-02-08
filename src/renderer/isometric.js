@@ -88,6 +88,16 @@ export function drawGhost(ctx, mode, x, y, isValid, rotation) {
         ctx.fillStyle = tint;
         ctx.globalCompositeOperation = 'source-atop';
         ctx.fillRect(p.x - 20, p.y - 95, 40, 100);
+    } else if (mode === 'cable') {
+        // Visualización de conector de cable
+        const cy = p.y + 16;
+        ctx.fillStyle = tint;
+        ctx.beginPath();
+        ctx.arc(p.x, cy, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1;
+        ctx.stroke();
     } else {
         ctx.beginPath();
         ctx.moveTo(p.x, p.y);
