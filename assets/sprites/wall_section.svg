@@ -1,0 +1,6 @@
+<svg id="svg-wall" width="64" height="140" viewBox="0 0 64 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M0 32 V140 L32 156 V48 Z" fill="#94a3b8"></path> 
+                <path d="M0 32 L32 16 L64 32 L32 48 Z" fill="#cbd5e1"></path> <path d="M32 48 V156 L64 140 V32 Z" fill="#e2e8f0"></path> <path d="M32 144 L64 128 V140 L32 156 Z" fill="#475569"></path>
+                
+                <path d="M32 48 V156" stroke="#cbd5e1" stroke-width="1" stroke-opacity="0.5"></path>
+            </svg>

@@ -1,0 +1,9 @@
+<svg id="svg-ac-wall" width="64" height="120" viewBox="0 0 64 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <g transform="translate(0, -40)"> 
+                    <path d="M10 50 L32 39 L54 50 L32 61 Z" fill="#f8fafc"></path> <path d="M10 50 V70 L32 81 V61 Z" fill="#cbd5e1"></path> <path d="M54 50 V70 L32 81 V61 Z" fill="#e2e8f0"></path> <path d="M32 75 L50 66" stroke="#94a3b8" stroke-width="2"></path>
+                    
+                    <circle cx="48" cy="60" r="1.5" fill="#10b981"></circle> <path d="M32 85 L32 95" stroke="#38bdf8" stroke-width="1" stroke-dasharray="2 2"></path>
+                </g>
+                
+                <ellipse cx="32" cy="110" rx="10" ry="5" fill="black" opacity="0.2"></ellipse>
+            </svg>
