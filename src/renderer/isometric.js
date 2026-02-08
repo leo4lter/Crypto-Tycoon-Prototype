@@ -134,49 +134,53 @@ export function drawMiner(ctx, pos, forcedElevation = 0, grayscale = false) {
 
     const drawY = p.y - elevation;
 
-    let bodyColor = pos.on ? '#00ff88' : '#555'; 
-    if (!grayscale && pos.modelColor) bodyColor = pos.modelColor;
-    
-    if (grayscale) {
-        bodyColor = '#444';
-        if (pos.on) bodyColor = '#666';
-    }
+    // Sprite Logic
+    if (Assets.loaded && Assets.sprites['miner_basic']) {
+        ctx.save();
 
-    if (!grayscale && Assets.loaded && Assets.sprites['miner_basic']) {
-        ctx.drawImage(Assets.sprites['miner_basic'], p.x - 16, drawY - 16, 32, 32); // Adjusted Y for grounding
+        // Aplicar filtros de visualización
+        if (Store.viewMode === 'temperature' || Store.viewMode === 'electricity') {
+            ctx.filter = 'grayscale(100%) opacity(0.5)';
+        }
+        if (grayscale) { // Para ghosts o capas ocultas
+             ctx.filter = 'grayscale(100%) opacity(0.3)';
+        }
+
+        ctx.drawImage(Assets.sprites['miner_basic'], p.x - 16, drawY - 16, 32, 32);
+        ctx.restore();
+
+        // LED Indicator (Solo en modo normal o electrico si no es ghost)
+        if (!grayscale && pos.on) {
+             const time = performance.now();
+             const ledColor = (Math.floor(time / 200) % 2 === 0) ? '#00ff00' : '#00aa00';
+             ctx.fillStyle = ledColor;
+             // Ajuste visual para el sprite
+             ctx.fillRect(p.x - 6, drawY + 8, 3, 3);
+        }
+
     } else {
+        // Fallback primitivo
+        let bodyColor = pos.on ? '#00ff88' : '#555';
+        if (!grayscale && pos.modelColor) bodyColor = pos.modelColor;
+        if (grayscale || Store.viewMode !== 'normal') bodyColor = '#444';
+
         ctx.fillStyle = bodyColor;
         ctx.fillRect(p.x - 8, drawY + 6, 16, 12);
 
         if (pos.on && !grayscale) {
             ctx.fillStyle = '#fff';
             ctx.fillRect(p.x - 2, drawY + 8, 4, 4);
-
-            const time = performance.now();
-            const ledColor = (Math.floor(time / 200) % 2 === 0) ? '#00ff00' : '#00aa00';
-            ctx.fillStyle = ledColor;
-            ctx.fillRect(p.x - 5, drawY + 8, 2, 2);
-        }
-
-        if (!grayscale) {
-            ctx.strokeStyle = '#ffff00';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            const cx = p.x;
-            const cy = drawY + 6;
-            const rot = pos.rotation || 0;
-
-            if (rot === 0) { ctx.moveTo(cx, cy); ctx.lineTo(cx + 6, cy + 3); }
-            else if (rot === 1) { ctx.moveTo(cx, cy); ctx.lineTo(cx - 6, cy + 3); }
-            else if (rot === 2) { ctx.moveTo(cx, cy); ctx.lineTo(cx - 6, cy - 3); }
-            else if (rot === 3) { ctx.moveTo(cx, cy); ctx.lineTo(cx + 6, cy - 3); }
-            ctx.stroke();
         }
     }
 
     // Dibujar Flechas de Flujo de Aire (si estamos en modo térmico o construyendo)
-    if (!grayscale && (Store.viewMode === 'temperature' || Store.buildMode === 'miner')) {
-        drawAirflowArrow(ctx, p.x, drawY, pos.rotation || 0);
+    // Forzamos dibujo incluso si grayscale es true (ghost) si es buildMode
+    if (Store.viewMode === 'temperature' || Store.buildMode === 'miner') {
+        // En modo térmico, dibujar flechas siempre para mineros existentes
+        // Si es ghost (grayscale true), dibujar también si estamos construyendo minero
+        if (!grayscale || Store.buildMode === 'miner') {
+             drawAirflowArrow(ctx, p.x, drawY, pos.rotation || 0);
+        }
     }
 }
 
@@ -184,8 +188,16 @@ export function drawRack(ctx, pos, grayscale = false) {
     const p = gridToScreen(pos.x, pos.y);
     const baseY = p.y + 10; 
     
-    if (!grayscale && Assets.loaded && Assets.sprites['rack_basic']) {
+    if (Assets.loaded && Assets.sprites['rack_basic']) {
+        ctx.save();
+        if (Store.viewMode === 'temperature' || Store.viewMode === 'electricity') {
+            ctx.filter = 'grayscale(100%) opacity(0.5)';
+        }
+        if (grayscale) {
+             ctx.filter = 'grayscale(100%) opacity(0.3)';
+        }
         ctx.drawImage(Assets.sprites['rack_basic'], p.x - 32, baseY - 110, 64, 115);
+        ctx.restore();
     } else {
         const colorBase = grayscale ? '#222' : '#2d3748';
         const colorPilar = grayscale ? '#333' : '#4a5568';
