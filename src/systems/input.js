@@ -182,6 +182,11 @@ export class InputSystem {
                 }
                 else if (mode === 'ac_unit' || mode === 'wall_ac' || mode === 'panel' || mode === 'cleaner') {
                     if (hasRack || hasObstacle || minersCount > 0) return { canBuild: false };
+
+            if (mode === 'wall_ac') {
+                // Solo permitido en bordes (x=0 o y=0)
+                if (gx !== 0 && gy !== 0) return { canBuild: false };
+            }
                 }
                 else if (mode === 'rack') {
                      // Racks no soportan multi-tile logic compleja aquí aun, asumimos 1x1 base

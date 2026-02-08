@@ -36,5 +36,16 @@ export const HARDWARE_DB = [
         color: '#10b981',// Verde
         ventDirection: 'back',
         size: [2, 1]     // Prueba Multi-Tile (2 ancho x 1 alto)
+    },
+    {
+        id: 'ac_wall_unit',
+        name: 'AC Split (Wall)',
+        type: 'cooling',
+        price: 800,
+        watts: 800,
+        heat: -15, // Enfría
+        placement: 'wall_adjacent',
+        color: '#93c5fd',
+        size: [1, 1]
     }
 ];
