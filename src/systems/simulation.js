@@ -156,40 +156,42 @@ export class SimulationSystem {
                 const idx = pos.x + pos.y * GRID;
                 const heatAmount = (miner.heatOutput || 1.0) * HEAT_GENERATION_SCALE;
 
-                // Lógica de "back" direction basada en rotación (isometric)
-                // 0: Down-Right (+x), Back: (-x)
-                // 1: Down-Left (+y), Back: (-y)
-                // 2: Top-Left (-x), Back: (+x)
-                // 3: Top-Right (-y), Back: (+y)
-                let backX = pos.x;
-                let backY = pos.y;
+                // Nueva Lógica de Dirección basada en la Flecha Roja (Salida)
+                // Rot 0 (Norte Visual): {x, y-1}
+                // Rot 1 (Este Visual):  {x+1, y}
+                // Rot 2 (Sur Visual):   {x, y+1}
+                // Rot 3 (Oeste Visual): {x-1, y}
+
+                let targetX = pos.x;
+                let targetY = pos.y;
                 const rot = pos.rotation || 0;
 
-                if (rot === 0) backX -= 1;
-                else if (rot === 1) backY -= 1;
-                else if (rot === 2) backX += 1;
-                else if (rot === 3) backY += 1;
+                if (rot === 0) targetY -= 1;      // Norte
+                else if (rot === 1) targetX += 1; // Este
+                else if (rot === 2) targetY += 1; // Sur
+                else if (rot === 3) targetX -= 1; // Oeste
 
-                // Verificar si la celda trasera es válida y si está obstruida
-                const isBackValid = (backX >= 0 && backX < GRID && backY >= 0 && backY < GRID);
+                // Verificar si la celda objetivo es válida
+                const isTargetValid = (targetX >= 0 && targetX < GRID && targetY >= 0 && targetY < GRID);
                 let isBlocked = false;
 
-                if (isBackValid) {
-                    // Chequear obstáculos (Pared, Panel, Rack, Otro Minero)
-                    isBlocked = this.getObstacleAt(backX, backY);
+                if (isTargetValid) {
+                    // Chequear obstáculos en la salida (Pared, Panel, Rack, Otro Minero)
+                    isBlocked = this.getObstacleAt(targetX, targetY);
                 } else {
                     isBlocked = true; // Borde del mapa cuenta como bloqueo
                 }
 
                 if (isBlocked) {
-                    // AHOGO TÉRMICO: El calor se acumula en el origen multiplicándose
-                    Store.heatBuffer[idx] += heatAmount * 3.0;
+                    // "Thermal Backflow": El calor rebota y se acumula en el origen multiplicándose
+                    Store.heatBuffer[idx] += heatAmount * 1.5;
                     miner.suffocating = true;
                 } else {
-                    // Flujo normal: 80% atrás, 20% en origen (radiación chasis)
-                    const backIdx = backX + backY * GRID;
-                    Store.heatBuffer[backIdx] += heatAmount * 0.8;
+                    // Flujo normal: 80% a la salida, 20% en origen (radiación chasis)
+                    const targetIdx = targetX + targetY * GRID;
+                    Store.heatBuffer[targetIdx] += heatAmount * 0.8;
                     Store.heatBuffer[idx] += heatAmount * 0.2;
+                    miner.suffocating = false;
                 }
             }
         }

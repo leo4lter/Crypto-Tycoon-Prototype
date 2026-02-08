@@ -18,6 +18,8 @@ export class UISystem {
         // Elementos Inspector
         this.elInspector = document.getElementById('inspector-panel');
         this.elInspectorContent = document.getElementById('inspector-content');
+        const btnInspectorClose = document.getElementById('btn-inspector-close');
+        if (btnInspectorClose) btnInspectorClose.onclick = () => { Store.selectedEntityId = null; };
 
         // Tooltip
         this.elTooltip = document.getElementById('tooltip');
@@ -209,30 +211,38 @@ export class UISystem {
             const temp = Store.heat[idx] || 0;
             const hasCarpet = this.game.simulationSystem.getCarpetAt(p.x, p.y);
 
-            html += `<div style="color:#00ff88; font-weight:bold;">MINERO (Slot ${m.slotIndex || 0})</div>`;
-            html += `<div>Estado: <span style="color:${m.on ? '#0f0':'#f00'}">${m.on ? 'ENCENDIDO' : 'APAGADO/SIN ENERGÍA'}</span></div>`;
-            html += `<div>Hashrate: ${m.hashrate} H/s</div>`;
-            html += `<div>Consumo: ${m.watts} W</div>`;
-            html += `<div>Temp Local: ${temp.toFixed(1)}°C ${hasCarpet ? '<span style="color:#f59e0b">(Aislado)</span>' : ''}</div>`;
+            html += `<div style="color:#00ff88; font-weight:bold;">${t('inspector.miner')} (Slot ${m.slotIndex || 0})</div>`;
+            html += `<div>${t('inspector.status')}: <span style="color:${m.on ? '#0f0':'#f00'}">${t(m.on ? 'inspector.on' : 'inspector.off')}</span></div>`;
+            html += `<div>${t('inspector.hashrate')}: ${m.hashrate} H/s</div>`;
+            html += `<div>${t('inspector.consumption')}: ${m.watts} W</div>`;
+            html += `<div>${t('inspector.temp')}: ${temp.toFixed(1)}°C ${hasCarpet ? `<span style="color:#f59e0b">${t('inspector.isolated')}</span>` : ''}</div>`;
 
             if (m.suffocating) {
-                 html += `<div style="color:red; font-weight:bold; animation: pulse 0.5s infinite;">¡AHOGO TÉRMICO!</div>`;
-                 html += `<div style="font-size:11px; color:#fca5a5;">(Salida de aire bloqueada)</div>`;
+                 html += `<div style="color:red; font-weight:bold; animation: pulse 0.5s infinite;">${t('inspector.suffocation')}</div>`;
+                 html += `<div style="font-size:11px; color:#fca5a5;">${t('inspector.blocked_air')}</div>`;
             }
 
-            if (m.broken) html += `<div style="color:red; font-weight:bold;">¡ROTO! REPARAR... (WIP)</div>`;
+            if (m.broken) html += `<div style="color:red; font-weight:bold;">${t('inspector.broken')}</div>`;
         }
         else if (this.game.ecs.components.rack.has(id)) {
             const r = this.game.ecs.components.rack.get(id);
-            html += `<div style="color:#fbbf24; font-weight:bold;">RACK DE SERVIDORES</div>`;
-            html += `<div>Slots Totales: ${r.slots || 6}</div>`;
+            html += `<div style="color:#fbbf24; font-weight:bold;">${t('inspector.rack')}</div>`;
+            html += `<div>${t('inspector.slots')}: ${r.slots || 6}</div>`;
         }
         else if (this.game.ecs.components.cable.has(id)) {
-             html += `<div style="color:#3b82f6; font-weight:bold;">CABLE DE ALTA TENSIÓN</div>`;
-             html += `<div>Transmisión: ESTABLE</div>`;
+             html += `<div style="color:#3b82f6; font-weight:bold;">${t('inspector.cable')}</div>`;
+             html += `<div>${t('inspector.status')}: ${t('inspector.stable')}</div>`;
+        }
+        else if (this.game.ecs.components.ac_unit.has(id)) {
+             html += `<div style="color:#60a5fa; font-weight:bold;">${t('inspector.ac_unit')}</div>`;
+             html += `<div>${t('inspector.status')}: ${t('inspector.on')}</div>`;
+        }
+        else if (this.game.ecs.components.wall_ac.has(id)) {
+             html += `<div style="color:#93c5fd; font-weight:bold;">${t('inspector.wall_ac')}</div>`;
+             html += `<div>${t('inspector.status')}: ${t('inspector.on')}</div>`;
         }
         else {
-            html += `<div style="color:#94a3b8;">OBJETO DESCONOCIDO</div>`;
+            html += `<div style="color:#94a3b8;">${t('inspector.unknown')}</div>`;
             html += `<div>ID: ${id}</div>`;
         }
 
