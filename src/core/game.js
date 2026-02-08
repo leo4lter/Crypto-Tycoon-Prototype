@@ -1,6 +1,7 @@
 import { Store } from './store.js';
 import { ECS } from './ecs.js';
 import { globalEventBus } from './eventBus.js';
+import { Assets } from './loader.js';
 import { SimulationSystem } from '../systems/simulation.js';
 import { EconomySystem } from '../systems/economy.js'; 
 import { UISystem } from '../systems/ui.js';
@@ -32,6 +33,8 @@ export class Game {
         const socket = this.ecs.createEntity();
         this.ecs.addComponent(socket, 'position', { x: 4, y: 4 });
         this.ecs.addComponent(socket, 'socket', {});
+
+        Assets.loadAll(); // Iniciar carga de assets
 
         this.lastTime = performance.now();
         this.acc = 0;

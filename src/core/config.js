@@ -12,9 +12,9 @@ export const CONFIG = {
     HEAT: {
         MAX_TEMP: 85,          // Temperatura crítica
         AMBIENT: 20,           // Temperatura base
-        DIFFUSION: 0.20,       // Velocidad de expansión
-        DISSIPATION: 0.005,    // Velocidad de enfriamiento (más lento)
-        GENERATION_SCALE: 0.8, // Multiplicador de calor de los equipos (agresivo)
+        DIFFUSION: 0.15,       // Velocidad de expansión (reducida)
+        DISSIPATION: 0.002,    // Velocidad de enfriamiento (aceite)
+        GENERATION_SCALE: 0.5, // Multiplicador de calor de los equipos
         INSULATION_FACTOR: 0.4,// Aislamiento de alfombras (retiene calor)
         EXPLOSION_HEAT: 300    // Calor generado al quemarse algo
     },
