@@ -154,18 +154,20 @@ export class SimulationSystem {
                 const idx = pos.x + pos.y * GRID;
                 const heatAmount = (miner.heatOutput || 1.0) * HEAT_GENERATION_SCALE;
 
-                // Rot 0 (Norte) -> Salida Sur (y+1) [OPUESTO A VISUAL]
-                // El prompt dice: "Calcula vector de salida OPUESTO a la rotación".
-                // Si Rotation es 0 (Norte Visual), la "Espalda" es el Sur Visual.
+                // Lógica Final de Dirección (Coherente con Flecha Roja)
+                // Rot 0 (Norte Visual) -> Espalda al Sur -> Output Heat al SUR (+Y)
+                // Rot 1 (Este Visual) -> Espalda al Oeste -> Output Heat al OESTE (-X)
+                // Rot 2 (Sur Visual) -> Espalda al Norte -> Output Heat al NORTE (-Y)
+                // Rot 3 (Oeste Visual) -> Espalda al Este -> Output Heat al ESTE (+X)
 
                 let targetX = pos.x;
                 let targetY = pos.y;
                 const rot = pos.rotation || 0;
 
-                if (rot === 0) targetY += 1;      // Salida Sur
-                else if (rot === 1) targetX -= 1; // Salida Oeste
-                else if (rot === 2) targetY -= 1; // Salida Norte
-                else if (rot === 3) targetX += 1; // Salida Este
+                if (rot === 0) targetY += 1;      // Salida Sur (+Y)
+                else if (rot === 1) targetX -= 1; // Salida Oeste (-X)
+                else if (rot === 2) targetY -= 1; // Salida Norte (-Y)
+                else if (rot === 3) targetX += 1; // Salida Este (+X)
 
                 const isTargetValid = (targetX >= 0 && targetX < GRID && targetY >= 0 && targetY < GRID);
                 let isBlocked = false;

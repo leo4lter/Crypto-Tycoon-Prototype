@@ -84,6 +84,9 @@ export function drawGhost(ctx, mode, x, y, isValid, rotation) {
         else if (rotation === 3) { ctx.moveTo(cx, cy); ctx.lineTo(cx + 6, cy - 3); }
         ctx.stroke();
 
+        // Mostrar flechas también en el ghost
+        drawAirflowArrow(ctx, p.x, drawY, rotation);
+
     } else if (mode === 'rack') {
         drawRack(ctx, { x, y }, true);
         ctx.fillStyle = tint;
@@ -139,8 +142,8 @@ export function drawMiner(ctx, pos, forcedElevation = 0, grayscale = false) {
         if (pos.on) bodyColor = '#666';
     }
 
-    if (!grayscale && Assets.loaded && Assets.sprites['tower']) {
-        ctx.drawImage(Assets.sprites['tower'], p.x - 16, drawY - 10, 32, 32);
+    if (!grayscale && Assets.loaded && Assets.sprites['miner_basic']) {
+        ctx.drawImage(Assets.sprites['miner_basic'], p.x - 16, drawY - 16, 32, 32); // Adjusted Y for grounding
     } else {
         ctx.fillStyle = bodyColor;
         ctx.fillRect(p.x - 8, drawY + 6, 16, 12);
@@ -181,8 +184,8 @@ export function drawRack(ctx, pos, grayscale = false) {
     const p = gridToScreen(pos.x, pos.y);
     const baseY = p.y + 10; 
     
-    if (!grayscale && Assets.loaded && Assets.sprites['rack']) {
-        ctx.drawImage(Assets.sprites['rack'], p.x - 32, baseY - 110, 64, 115);
+    if (!grayscale && Assets.loaded && Assets.sprites['rack_basic']) {
+        ctx.drawImage(Assets.sprites['rack_basic'], p.x - 32, baseY - 110, 64, 115);
     } else {
         const colorBase = grayscale ? '#222' : '#2d3748';
         const colorPilar = grayscale ? '#333' : '#4a5568';
@@ -331,34 +334,25 @@ function drawAirflowArrow(ctx, x, y, rotation) {
     ctx.save();
     ctx.translate(x, y + 6);
 
-    // Ajuste de ángulos para que la flecha roja apunte a la "Espalda" (Salida de Calor)
-    // Coincidiendo con la lógica de simulación nueva:
-    // Rot 0: Visual Norte -> Espalda Sur (+Y en grid) -> Abajo-Izquierda en Pantalla?
-    // gridToScreen: +y -> +screenY, -screenX.
-    // +Y es Abajo-Izquierda.
-    // Ángulo +135 deg.
+    // Lógica Invertida según instrucciones:
+    // Flecha ROJA (Salida) = Espalda del Sprite.
+    // Flecha AZUL (Entrada) = Frente del Sprite.
 
-    // Rot 1: Visual Este -> Espalda Oeste (-X en grid) -> Arriba-Izquierda en Pantalla.
-    // -X es -screenX, -screenY.
-    // Ángulo -135 deg.
-
-    // Rot 2: Visual Sur -> Espalda Norte (-Y en grid) -> Arriba-Derecha en Pantalla.
-    // -Y es +screenX, -screenY.
-    // Ángulo -45 deg.
-
-    // Rot 3: Visual Oeste -> Espalda Este (+X en grid) -> Abajo-Derecha en Pantalla.
-    // +X es +screenX, +screenY.
-    // Ángulo +45 deg.
+    // Rotación Sprite (Visual):
+    // 0: Norte (Arriba-Derecha en ISO estándar? No, gridToScreen logic: -Y es Norte visual. +X es Este visual.)
+    // Vamos a asumir la lógica de simulación actual como verdad absoluta para "Espalda":
+    // Rot 0 -> Espalda Sur. (Salida Roja al Sur).
 
     let angle = 0;
-    if (rotation === 0) angle = Math.PI * 0.75;   // Output: Sur (Abajo-Izq)
-    else if (rotation === 1) angle = -Math.PI * 0.75; // Output: Oeste (Arriba-Izq)
-    else if (rotation === 2) angle = -Math.PI * 0.25; // Output: Norte (Arriba-Der)
-    else if (rotation === 3) angle = Math.PI * 0.25;  // Output: Este (Abajo-Der)
+    // Sur visual (Espalda de Rot 0) es +Y en grid => Abajo-Izquierda en Pantalla. (+135 deg)
+    if (rotation === 0) angle = Math.PI * 0.75;
+    else if (rotation === 1) angle = -Math.PI * 0.75; // Oeste (Arriba-Izq)
+    else if (rotation === 2) angle = -Math.PI * 0.25; // Norte (Arriba-Der)
+    else if (rotation === 3) angle = Math.PI * 0.25;  // Este (Abajo-Der)
 
     ctx.rotate(angle);
 
-    // Flecha Roja (Salida de Calor)
+    // Flecha Roja (Salida de Calor - Espalda)
     ctx.fillStyle = '#ef4444';
     ctx.strokeStyle = '#000';
     ctx.lineWidth = 1;
