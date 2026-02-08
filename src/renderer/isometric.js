@@ -165,6 +165,11 @@ export function drawMiner(ctx, pos, forcedElevation = 0, grayscale = false) {
         else if (rot === 3) { ctx.moveTo(cx, cy); ctx.lineTo(cx + 6, cy - 3); }
         ctx.stroke();
     }
+
+    // Dibujar Flechas de Flujo de Aire (si estamos en modo térmico o construyendo)
+    if (!grayscale && (Store.viewMode === 'temperature' || Store.buildMode === 'miner')) {
+        drawAirflowArrow(ctx, p.x, drawY, pos.rotation || 0);
+    }
 }
 
 export function drawRack(ctx, pos, grayscale = false) {
@@ -311,4 +316,57 @@ export function drawSubsoilCable(ctx, pos) {
     const p = gridToScreen(pos.x, pos.y);
     ctx.fillStyle = '#005577';
     ctx.fillRect(p.x - 4, p.y + 14, 8, 4);
+}
+
+function drawAirflowArrow(ctx, x, y, rotation) {
+    ctx.save();
+    ctx.translate(x, y + 6); // Centro visual del minero aprox
+
+    // Rotación:
+    // 0: +X (Abajo-Derecha) -> Sale Aire Caliente hacia ATRÁS (-X, Arriba-Izquierda)
+    // Espera, la simulación dice:
+    // rot 0: BackX -= 1 (Arriba-Izquierda visual en ISO map?)
+    // gridToScreen: x-y -> +x en grid es +screenX, +screenY. -x es -screenX, -screenY.
+    // Entonces rot 0 (Back -x) es Arriba-Izquierda en pantalla.
+
+    // Ángulos visuales aproximados para la flecha de SALIDA (Caliente)
+    // Rot 0 (Back -x): -135 deg (Arriba-Izq)
+    // Rot 1 (Back -y): -45 deg (Arriba-Der) -> -y en grid es +screenX, -screenY (Arriba-Der)
+    // Rot 2 (Back +x): +45 deg (Abajo-Der)
+    // Rot 3 (Back +y): +135 deg (Abajo-Izq)
+
+    let angle = 0;
+    if (rotation === 0) angle = -Math.PI * 0.75; // Arriba-Izq
+    else if (rotation === 1) angle = -Math.PI * 0.25; // Arriba-Der
+    else if (rotation === 2) angle = Math.PI * 0.25;  // Abajo-Der
+    else if (rotation === 3) angle = Math.PI * 0.75;  // Abajo-Izq
+
+    ctx.rotate(angle);
+
+    // Flecha Roja (Salida)
+    ctx.fillStyle = '#ff3333';
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1;
+
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(8, -3);
+    ctx.lineTo(8, 3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Flecha Cian (Entrada - opuesta)
+    ctx.rotate(Math.PI); // Invertir 180
+    ctx.fillStyle = '#00ffff';
+
+    ctx.beginPath();
+    ctx.moveTo(12, 0); // Un poco más lejos
+    ctx.lineTo(4, -2);
+    ctx.lineTo(4, 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.restore();
 }
