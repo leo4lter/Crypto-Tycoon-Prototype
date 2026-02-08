@@ -5,8 +5,8 @@ export const Assets = {
 
     async loadAll() {
         const toLoad = {
-            'rack': 'assets/sprites/rack_wire_full.svg',
-            'tower': 'assets/sprites/pc_tower_full.svg'
+            'rack_basic': 'assets/sprites/rack_wire_full.svg',
+            'miner_basic': 'assets/sprites/pc_tower_full.svg'
         };
 
         const promises = Object.entries(toLoad).map(([key, url]) => {

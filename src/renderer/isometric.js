@@ -84,6 +84,9 @@ export function drawGhost(ctx, mode, x, y, isValid, rotation) {
         else if (rotation === 3) { ctx.moveTo(cx, cy); ctx.lineTo(cx + 6, cy - 3); }
         ctx.stroke();
 
+        // Mostrar flechas también en el ghost
+        drawAirflowArrow(ctx, p.x, drawY, rotation);
+
     } else if (mode === 'rack') {
         drawRack(ctx, { x, y }, true);
         ctx.fillStyle = tint;
@@ -131,49 +134,53 @@ export function drawMiner(ctx, pos, forcedElevation = 0, grayscale = false) {
 
     const drawY = p.y - elevation;
 
-    let bodyColor = pos.on ? '#00ff88' : '#555'; 
-    if (!grayscale && pos.modelColor) bodyColor = pos.modelColor;
-    
-    if (grayscale) {
-        bodyColor = '#444';
-        if (pos.on) bodyColor = '#666';
-    }
+    // Sprite Logic
+    if (Assets.loaded && Assets.sprites['miner_basic']) {
+        ctx.save();
 
-    if (!grayscale && Assets.loaded && Assets.sprites['tower']) {
-        ctx.drawImage(Assets.sprites['tower'], p.x - 16, drawY - 10, 32, 32);
+        // Aplicar filtros de visualización
+        if (Store.viewMode === 'temperature' || Store.viewMode === 'electricity') {
+            ctx.filter = 'grayscale(100%) opacity(0.5)';
+        }
+        if (grayscale) { // Para ghosts o capas ocultas
+             ctx.filter = 'grayscale(100%) opacity(0.3)';
+        }
+
+        ctx.drawImage(Assets.sprites['miner_basic'], p.x - 16, drawY - 16, 32, 32);
+        ctx.restore();
+
+        // LED Indicator (Solo en modo normal o electrico si no es ghost)
+        if (!grayscale && pos.on) {
+             const time = performance.now();
+             const ledColor = (Math.floor(time / 200) % 2 === 0) ? '#00ff00' : '#00aa00';
+             ctx.fillStyle = ledColor;
+             // Ajuste visual para el sprite
+             ctx.fillRect(p.x - 6, drawY + 8, 3, 3);
+        }
+
     } else {
+        // Fallback primitivo
+        let bodyColor = pos.on ? '#00ff88' : '#555';
+        if (!grayscale && pos.modelColor) bodyColor = pos.modelColor;
+        if (grayscale || Store.viewMode !== 'normal') bodyColor = '#444';
+
         ctx.fillStyle = bodyColor;
         ctx.fillRect(p.x - 8, drawY + 6, 16, 12);
 
         if (pos.on && !grayscale) {
             ctx.fillStyle = '#fff';
             ctx.fillRect(p.x - 2, drawY + 8, 4, 4);
-
-            const time = performance.now();
-            const ledColor = (Math.floor(time / 200) % 2 === 0) ? '#00ff00' : '#00aa00';
-            ctx.fillStyle = ledColor;
-            ctx.fillRect(p.x - 5, drawY + 8, 2, 2);
-        }
-
-        if (!grayscale) {
-            ctx.strokeStyle = '#ffff00';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            const cx = p.x;
-            const cy = drawY + 6;
-            const rot = pos.rotation || 0;
-
-            if (rot === 0) { ctx.moveTo(cx, cy); ctx.lineTo(cx + 6, cy + 3); }
-            else if (rot === 1) { ctx.moveTo(cx, cy); ctx.lineTo(cx - 6, cy + 3); }
-            else if (rot === 2) { ctx.moveTo(cx, cy); ctx.lineTo(cx - 6, cy - 3); }
-            else if (rot === 3) { ctx.moveTo(cx, cy); ctx.lineTo(cx + 6, cy - 3); }
-            ctx.stroke();
         }
     }
 
     // Dibujar Flechas de Flujo de Aire (si estamos en modo térmico o construyendo)
-    if (!grayscale && (Store.viewMode === 'temperature' || Store.buildMode === 'miner')) {
-        drawAirflowArrow(ctx, p.x, drawY, pos.rotation || 0);
+    // Forzamos dibujo incluso si grayscale es true (ghost) si es buildMode
+    if (Store.viewMode === 'temperature' || Store.buildMode === 'miner') {
+        // En modo térmico, dibujar flechas siempre para mineros existentes
+        // Si es ghost (grayscale true), dibujar también si estamos construyendo minero
+        if (!grayscale || Store.buildMode === 'miner') {
+             drawAirflowArrow(ctx, p.x, drawY, pos.rotation || 0);
+        }
     }
 }
 
@@ -181,8 +188,16 @@ export function drawRack(ctx, pos, grayscale = false) {
     const p = gridToScreen(pos.x, pos.y);
     const baseY = p.y + 10; 
     
-    if (!grayscale && Assets.loaded && Assets.sprites['rack']) {
-        ctx.drawImage(Assets.sprites['rack'], p.x - 32, baseY - 110, 64, 115);
+    if (Assets.loaded && Assets.sprites['rack_basic']) {
+        ctx.save();
+        if (Store.viewMode === 'temperature' || Store.viewMode === 'electricity') {
+            ctx.filter = 'grayscale(100%) opacity(0.5)';
+        }
+        if (grayscale) {
+             ctx.filter = 'grayscale(100%) opacity(0.3)';
+        }
+        ctx.drawImage(Assets.sprites['rack_basic'], p.x - 32, baseY - 110, 64, 115);
+        ctx.restore();
     } else {
         const colorBase = grayscale ? '#222' : '#2d3748';
         const colorPilar = grayscale ? '#333' : '#4a5568';
@@ -331,34 +346,25 @@ function drawAirflowArrow(ctx, x, y, rotation) {
     ctx.save();
     ctx.translate(x, y + 6);
 
-    // Ajuste de ángulos para que la flecha roja apunte a la "Espalda" (Salida de Calor)
-    // Coincidiendo con la lógica de simulación nueva:
-    // Rot 0: Visual Norte -> Espalda Sur (+Y en grid) -> Abajo-Izquierda en Pantalla?
-    // gridToScreen: +y -> +screenY, -screenX.
-    // +Y es Abajo-Izquierda.
-    // Ángulo +135 deg.
+    // Lógica Invertida según instrucciones:
+    // Flecha ROJA (Salida) = Espalda del Sprite.
+    // Flecha AZUL (Entrada) = Frente del Sprite.
 
-    // Rot 1: Visual Este -> Espalda Oeste (-X en grid) -> Arriba-Izquierda en Pantalla.
-    // -X es -screenX, -screenY.
-    // Ángulo -135 deg.
-
-    // Rot 2: Visual Sur -> Espalda Norte (-Y en grid) -> Arriba-Derecha en Pantalla.
-    // -Y es +screenX, -screenY.
-    // Ángulo -45 deg.
-
-    // Rot 3: Visual Oeste -> Espalda Este (+X en grid) -> Abajo-Derecha en Pantalla.
-    // +X es +screenX, +screenY.
-    // Ángulo +45 deg.
+    // Rotación Sprite (Visual):
+    // 0: Norte (Arriba-Derecha en ISO estándar? No, gridToScreen logic: -Y es Norte visual. +X es Este visual.)
+    // Vamos a asumir la lógica de simulación actual como verdad absoluta para "Espalda":
+    // Rot 0 -> Espalda Sur. (Salida Roja al Sur).
 
     let angle = 0;
-    if (rotation === 0) angle = Math.PI * 0.75;   // Output: Sur (Abajo-Izq)
-    else if (rotation === 1) angle = -Math.PI * 0.75; // Output: Oeste (Arriba-Izq)
-    else if (rotation === 2) angle = -Math.PI * 0.25; // Output: Norte (Arriba-Der)
-    else if (rotation === 3) angle = Math.PI * 0.25;  // Output: Este (Abajo-Der)
+    // Sur visual (Espalda de Rot 0) es +Y en grid => Abajo-Izquierda en Pantalla. (+135 deg)
+    if (rotation === 0) angle = Math.PI * 0.75;
+    else if (rotation === 1) angle = -Math.PI * 0.75; // Oeste (Arriba-Izq)
+    else if (rotation === 2) angle = -Math.PI * 0.25; // Norte (Arriba-Der)
+    else if (rotation === 3) angle = Math.PI * 0.25;  // Este (Abajo-Der)
 
     ctx.rotate(angle);
 
-    // Flecha Roja (Salida de Calor)
+    // Flecha Roja (Salida de Calor - Espalda)
     ctx.fillStyle = '#ef4444';
     ctx.strokeStyle = '#000';
     ctx.lineWidth = 1;
