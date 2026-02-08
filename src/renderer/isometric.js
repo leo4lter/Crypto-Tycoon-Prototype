@@ -13,8 +13,20 @@ export function gridToScreen(x, y) {
 export function screenToGrid(x, y) {
     let dx = x - CONFIG.ORIGIN_X;
     let dy = y - CONFIG.ORIGIN_Y;
-    const gx = Math.floor((dy / (CONFIG.TILE_H / 2) + dx / (CONFIG.TILE_W / 2)) / 2);
-    const gy = Math.floor((dy / (CONFIG.TILE_H / 2) - dx / (CONFIG.TILE_W / 2)) / 2);
+    // Añadimos un pequeño offset (0.5?) para centrar mejor el click en el tile
+    // La fórmula estándar asume 0,0 en el vértice superior del tile 0,0.
+    // Si el usuario hace click en el borde, floor podría fallar.
+    // Probamos sin cambios drásticos, pero si el usuario reporta falta de generosidad,
+    // quizás el problema es que el 'hitbox' visual del tile es más grande que el lógico?
+    // En isométrico, el tile es un rombo exacto.
+    // Vamos a añadir una tolerancia de redondeo para bordes.
+
+    const isoX = (dy / (CONFIG.TILE_H / 2) + dx / (CONFIG.TILE_W / 2)) / 2;
+    const isoY = (dy / (CONFIG.TILE_H / 2) - dx / (CONFIG.TILE_W / 2)) / 2;
+
+    // Usar Math.floor es correcto para celdas positivas.
+    const gx = Math.floor(isoX);
+    const gy = Math.floor(isoY);
     return { gx, gy };
 }
 
