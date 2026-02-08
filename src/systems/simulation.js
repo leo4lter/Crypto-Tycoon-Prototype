@@ -179,8 +179,8 @@ export class SimulationSystem {
                 }
 
                 if (isBlocked) {
-                    // Penalización x1.5 si está bloqueado
-                    Store.heatBuffer[idx] += heatAmount * 1.5;
+                    // Penalización x2.0 si está bloqueado (pared o borde)
+                    Store.heatBuffer[idx] += heatAmount * 2.0;
                     miner.suffocating = true;
                 } else {
                     const targetIdx = targetX + targetY * GRID;

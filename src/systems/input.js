@@ -173,19 +173,42 @@ export class InputSystem {
 
         // Prioridad de selección: Minero > Rack > Otros
         if (e.button === 0 && entitiesAtCursor.length > 0) {
-            // Si hacemos clic en algo existente, lo seleccionamos en lugar de construir
-            // OJO: Esto podría conflictuar con construir encima.
-            // Regla: Si no podemos construir aquí (ocupado), entonces seleccionamos.
-            const status = this.getBuildStatus(Store.hover.x, Store.hover.y);
+            // SIEMPRE seleccionar si hay clic en entidad y no estamos en un modo de "borrado" o similar.
+            // Si el modo de construcción es 'normal' (o null implícito) O si la celda está ocupada y bloquea construcción.
 
-            if (!status.canBuild) {
-                // Buscar la entidad más relevante
-                const miner = entitiesAtCursor.find(id => this.ecs.components.miner?.has(id));
-                const rack = entitiesAtCursor.find(id => this.ecs.components.rack?.has(id));
-                const other = entitiesAtCursor[0];
+            // Priorizar selección sobre construcción si ya hay algo, salvo que sea cable sobre suelo?
+            // Para "Inspection System Polish": Asegurar que al hacer clic izquierdo sobre cualquier entidad... se asigne.
 
-                Store.selectedEntityId = miner || rack || other;
-                return;
+            const miner = entitiesAtCursor.find(id => this.ecs.components.miner?.has(id));
+            const rack = entitiesAtCursor.find(id => this.ecs.components.rack?.has(id));
+            const ac = entitiesAtCursor.find(id => this.ecs.components.ac_unit?.has(id) || this.ecs.components.wall_ac?.has(id));
+            const other = entitiesAtCursor.find(id => !this.ecs.components.socket?.has(id)); // Ignorar sockets vacios para selección principal?
+
+            // Si hay algo sustancial (no socket vacío), seleccionamos.
+            // Excepción: Si estamos construyendo cables, quizás queremos poner cable sobre suelo.
+            // Pero el prompt dice "Asegurar que al hacer clic... se asigne".
+
+            const target = miner || rack || ac || other || entitiesAtCursor[0];
+
+            if (target) {
+                Store.selectedEntityId = target;
+                // Si seleccionamos, ¿evitamos construir?
+                // Si el status dice que NO podemos construir, seguro es selección.
+                // Si dice que SI podemos (ej: poner cable sobre suelo), ¿qué prioridad?
+                // Asumiremos: Si hago clic en un Minero, quiero inspeccionarlo, no ponerle otro encima (que fallaría) o un cable (que quizás se pueda).
+                // Para garantizar inspección, si hay target, retornamos.
+
+                // Pero si quiero poner un cable debajo de un minero? (Mode cable).
+                // BuildStatus dirá si se puede.
+
+                const status = this.getBuildStatus(Store.hover.x, Store.hover.y);
+                if (!status.canBuild || Store.buildMode === 'normal' || !Store.buildMode) {
+                     return;
+                }
+                // Si canBuild es true (ej: cable), dejamos pasar a executeBuild?
+                // El prompt pide inspección. Haremos que la selección ocurra SIEMPRE, y si se construye, se construye TAMBIÉN? No, conflicto.
+                // Decisión: Si hago clic en una entidad interactiva (minero, rack, ac), la selecciono y NO construyo.
+                if (miner || rack || ac) return;
             }
         }
 
@@ -231,28 +254,30 @@ export class InputSystem {
                 const hasRack = entities.some(id => this.ecs.components.rack?.has(id));
                 const minersCount = entities.filter(id => this.ecs.components.miner?.has(id)).length;
                 // Ahora usamos 'collider' o comprobamos componentes específicos que actúan como obstáculos
+                // IMPORTANTE: hasObstacle solo debe ser true si hay algo en ESTA celda específica (tx, ty).
+                // El filtro `entities` ya filtra por `p.x === tx && p.y === ty`, así que `entities` solo contiene objetos en esta celda.
+
                 const hasObstacle = entities.some(id =>
                     this.ecs.components.panel?.has(id) ||
                     this.ecs.components.cleaner?.has(id) ||
                     this.ecs.components.ac_unit?.has(id) ||
                     this.ecs.components.wall_ac?.has(id) ||
-                    this.ecs.components.miner?.has(id) || // Un minero ya es obstáculo para otro
-                    (this.ecs.components.collider?.has(id) && this.ecs.components.collider.get(id).isSolid) // Generico
+                    this.ecs.components.miner?.has(id) ||
+                    (this.ecs.components.collider?.has(id) && this.ecs.components.collider.get(id).isSolid)
                 );
 
                 if (mode === 'cable') {
                     if (hasSubsoil) return { canBuild: false };
                 }
-                else if (mode === 'ac_unit' || mode === 'wall_ac' || mode === 'panel' || mode === 'cleaner') {
+                else if (mode === 'ac_unit' || mode === 'panel' || mode === 'cleaner') {
                     if (hasRack || hasObstacle || minersCount > 0) return { canBuild: false };
-
-            if (mode === 'wall_ac') {
-                // Solo permitido en bordes (x=0 o y=0)
-                if (gx !== 0 && gy !== 0) return { canBuild: false };
-            }
+                }
+                else if (mode === 'wall_ac') {
+                    // Solo permitido en bordes (x=0 o y=0)
+                    if (tx !== 0 && ty !== 0) return { canBuild: false }; // Usar tx/ty del loop
+                    if (hasRack || hasObstacle || minersCount > 0) return { canBuild: false };
                 }
                 else if (mode === 'rack') {
-                     // Racks no soportan multi-tile logic compleja aquí aun, asumimos 1x1 base
                     if (minersCount > 0 || hasRack || hasObstacle) return { canBuild: false };
                 }
                 else if (mode === 'miner') {
