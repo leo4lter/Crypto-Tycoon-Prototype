@@ -10,7 +10,8 @@ export const HARDWARE_DB = [
         watts: 105,      // Consumo medio
         heat: 1.5,       // Calienta un poco más
         color: '#3b82f6',// Azul
-        ventDirection: 'back'
+        ventDirection: 'back',
+        size: [1, 1]
     },
     {
         id: 'gpu_2011',
@@ -21,17 +22,19 @@ export const HARDWARE_DB = [
         watts: 188,      // Consumo alto para la época
         heat: 5.0,       // Calienta bastante
         color: '#ef4444',// Rojo
-        ventDirection: 'back'
+        ventDirection: 'back',
+        size: [1, 1]
     },
     {
         id: 'asic_2013',
-        name: 'Antminer S1',
+        name: 'Antminer S1 (Large)',
         type: 'ASIC',
         price: 2000,
         hashrate: 180.0, // Bestial
         watts: 360,      // Eficiente por watt, pero consumo total alto
         heat: 20.0,      // Un horno industrial
         color: '#10b981',// Verde
-        ventDirection: 'back'
+        ventDirection: 'back',
+        size: [2, 1]     // Prueba Multi-Tile (2 ancho x 1 alto)
     }
 ];

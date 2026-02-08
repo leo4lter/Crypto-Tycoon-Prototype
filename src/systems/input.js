@@ -3,6 +3,7 @@ import { CONFIG } from '../core/config.js';
 import { Utils } from '../core/utils.js';
 import { screenToGrid } from '../renderer/isometric.js';
 import { HARDWARE_DB } from '../core/hardware.js';
+import { Collider } from '../ecs/components/collider.js';
 
 export class InputSystem {
     constructor(game) {
@@ -138,67 +139,104 @@ export class InputSystem {
 
     getBuildStatus(gx, gy) {
         const mode = Store.buildMode;
-        
-        const entities = this.ecs.getEntitiesWith('position').filter(id => {
-            const p = this.ecs.components.position.get(id);
-            return p.x === gx && p.y === gy;
-        });
+        let width = 1, height = 1;
 
-        const hasSubsoil = entities.some(id => this.ecs.components.cable?.has(id));
-        const hasGround = entities.some(id => this.ecs.components.carpet?.has(id));
-        const hasRack = entities.some(id => this.ecs.components.rack?.has(id));
-        const minersCount = entities.filter(id => this.ecs.components.miner?.has(id)).length;
-        const hasObstacle = entities.some(id => 
-            this.ecs.components.panel?.has(id) || this.ecs.components.cleaner?.has(id) ||
-            this.ecs.components.ac_unit?.has(id) || this.ecs.components.wall_ac?.has(id)
-        );
-
-        if (mode === 'cable') {
-            return { canBuild: !hasSubsoil };
-        }
-        if (mode === 'ac_unit') {
-             // Suelo, no conflictos con rack/panel
-             if (hasRack || hasObstacle || minersCount > 0) return { canBuild: false };
-             return { canBuild: true };
-        }
-        if (mode === 'wall_ac') {
-             // Pared
-             if (hasRack || hasObstacle || minersCount > 0) return { canBuild: false };
-             return { canBuild: true };
-        }
-        if (mode === 'rack') {
-            if (minersCount > 0 || hasRack || hasObstacle) return { canBuild: false };
-            return { canBuild: true };
-        }
         if (mode === 'miner') {
-            if (hasObstacle) return { canBuild: false };
-            
             const stats = HARDWARE_DB[Store.selectedHardwareIndex];
-            if (Store.economy.usd < stats.price) return { canBuild: false };
-
-            let slot = 0;
-            if (hasRack) {
-                if (minersCount >= 6) return { canBuild: false };
-                slot = minersCount;
-            } else {
-                if (minersCount >= 1) return { canBuild: false };
-                slot = 0;
+            if (stats.size) {
+                width = stats.size[0];
+                height = stats.size[1];
             }
-            return { canBuild: true, slot: slot, price: stats.price };
         }
-        if (mode === 'carpet') return { canBuild: !hasGround };
-        if (mode === 'cleaner' || mode === 'panel') {
-            if (minersCount > 0 || hasRack || hasObstacle) return { canBuild: false };
-            return { canBuild: true };
+        // TODO: Definir size para racks, etc. Por ahora 1x1
+
+        // Verificar colisiones en TODAS las celdas ocupadas por el objeto
+        for (let dy = 0; dy < height; dy++) {
+            for (let dx = 0; dx < width; dx++) {
+                const tx = gx + dx;
+                const ty = gy + dy;
+
+                if (!Utils.isValid(tx, ty)) return { canBuild: false };
+
+                const entities = this.ecs.getEntitiesWith('position').filter(id => {
+                    const p = this.ecs.components.position.get(id);
+                    return p.x === tx && p.y === ty;
+                });
+
+                const hasSubsoil = entities.some(id => this.ecs.components.cable?.has(id));
+                const hasGround = entities.some(id => this.ecs.components.carpet?.has(id));
+                const hasRack = entities.some(id => this.ecs.components.rack?.has(id));
+                const minersCount = entities.filter(id => this.ecs.components.miner?.has(id)).length;
+                // Ahora usamos 'collider' o comprobamos componentes específicos que actúan como obstáculos
+                const hasObstacle = entities.some(id =>
+                    this.ecs.components.panel?.has(id) ||
+                    this.ecs.components.cleaner?.has(id) ||
+                    this.ecs.components.ac_unit?.has(id) ||
+                    this.ecs.components.wall_ac?.has(id) ||
+                    this.ecs.components.miner?.has(id) || // Un minero ya es obstáculo para otro
+                    (this.ecs.components.collider?.has(id) && this.ecs.components.collider.get(id).isSolid) // Generico
+                );
+
+                if (mode === 'cable') {
+                    if (hasSubsoil) return { canBuild: false };
+                }
+                else if (mode === 'ac_unit' || mode === 'wall_ac' || mode === 'panel' || mode === 'cleaner') {
+                    if (hasRack || hasObstacle || minersCount > 0) return { canBuild: false };
+                }
+                else if (mode === 'rack') {
+                     // Racks no soportan multi-tile logic compleja aquí aun, asumimos 1x1 base
+                    if (minersCount > 0 || hasRack || hasObstacle) return { canBuild: false };
+                }
+                else if (mode === 'miner') {
+                    if (hasObstacle) return { canBuild: false };
+
+                    const stats = HARDWARE_DB[Store.selectedHardwareIndex];
+                    if (Store.economy.usd < stats.price) return { canBuild: false };
+
+                    let slot = 0;
+                    if (hasRack) {
+                        // Si hay rack, asumimos que ponemos DENTRO del rack.
+                        // Los racks ignoran multi-tile visual por ahora (se apilan),
+                        // pero si es un objeto grande (2x1), ¿cabe en un rack de 1x1?
+                        // Simplificación: Objetos grandes NO entran en Racks estándar.
+                        if (width > 1 || height > 1) return { canBuild: false }; // Solo 1x1 en racks
+
+                        if (minersCount >= 6) return { canBuild: false };
+                        slot = minersCount;
+                    } else {
+                        if (minersCount >= 1) return { canBuild: false };
+                        slot = 0;
+                    }
+                    // Si es multi-tile, solo retornamos true si TODAS las celdas validaron.
+                    // Si estamos en la última iteración del loop y todo bien:
+                    if (dx === width - 1 && dy === height - 1) {
+                         return { canBuild: true, slot: slot, price: stats.price, width, height };
+                    }
+                }
+                else if (mode === 'carpet') {
+                    if (hasGround) return { canBuild: false };
+                }
+            }
         }
 
-        return { canBuild: false };
+        // Si sale del loop sin retornar false (y no era miner que retorna dentro), es valido?
+        // El caso miner retorna explícitamente. Los otros modos son 1x1.
+        if (mode !== 'miner') return { canBuild: true };
+
+        return { canBuild: false }; // Fallback
     }
 
     executeBuild(gx, gy, status) {
         const mode = Store.buildMode;
+
+        // Crear entidad principal
         const id = this.ecs.createEntity();
         this.ecs.addComponent(id, 'position', { x: gx, y: gy });
+
+        // Añadir collider a todo lo sólido
+        if (mode !== 'cable' && mode !== 'carpet') {
+             this.ecs.addComponent(id, 'collider', { isSolid: true, isInteractive: true });
+        }
 
         if (mode === 'cable') this.ecs.addComponent(id, 'cable', {});
         
@@ -216,6 +254,26 @@ export class InputSystem {
                 rotation: Store.buildRotation,
                 slotIndex: status.slot
             });
+
+            // Manejo Multi-Tile (Placeholders)
+            const w = status.width || 1;
+            const h = status.height || 1;
+
+            if (w > 1 || h > 1) {
+                // Iterar celdas extra (saltando la 0,0 que es la principal)
+                for (let dy = 0; dy < h; dy++) {
+                    for (let dx = 0; dx < w; dx++) {
+                        if (dx === 0 && dy === 0) continue; // Principal ya creada
+
+                        const pid = this.ecs.createEntity();
+                        this.ecs.addComponent(pid, 'position', { x: gx + dx, y: gy + dy });
+                        this.ecs.addComponent(pid, 'parent', { parentId: id }); // Apunta al principal
+                        this.ecs.addComponent(pid, 'collider', { isSolid: true, isInteractive: true });
+                        // Marca especial para identificar placeholder
+                        this.ecs.addComponent(pid, 'isPlaceholder', {});
+                    }
+                }
+            }
         }
         
         else if (mode === 'carpet') this.ecs.addComponent(id, 'carpet', { noiseReduction: 0.6 });

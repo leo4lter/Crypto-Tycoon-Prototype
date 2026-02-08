@@ -90,12 +90,27 @@ export class UISystem {
             return;
         }
 
-        const id = Store.selectedEntityId;
+        let id = Store.selectedEntityId;
         // Verificar si la entidad aún existe
         if (!this.game.ecs.entities.has(id)) {
             Store.selectedEntityId = null;
             this.elInspector.classList.add('hidden');
             return;
+        }
+
+        // Si es un placeholder, seleccionamos al padre
+        if (this.game.ecs.components.isPlaceholder && this.game.ecs.components.isPlaceholder.has(id)) {
+             if (this.game.ecs.components.parent && this.game.ecs.components.parent.has(id)) {
+                 id = this.game.ecs.components.parent.get(id).parentId;
+                 // Actualizamos la selección global para que no parpadee
+                 Store.selectedEntityId = id;
+                 // Revalidar existencia del padre
+                 if (!this.game.ecs.entities.has(id)) {
+                    Store.selectedEntityId = null;
+                    this.elInspector.classList.add('hidden');
+                    return;
+                 }
+             }
         }
 
         this.elInspector.classList.remove('hidden');
