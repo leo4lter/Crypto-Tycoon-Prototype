@@ -216,7 +216,8 @@ export class UISystem {
             html += `<div>${t('inspector.hashrate')}: ${m.hashrate} H/s</div>`;
             html += `<div>${t('inspector.consumption')}: ${m.watts} W</div>`;
             html += `<div>${t('inspector.temp')}: ${temp.toFixed(1)}°C ${hasCarpet ? `<span style="color:#f59e0b">${t('inspector.isolated')}</span>` : ''}</div>`;
-
+            html += `<div>Polvo: <span style="color:${dirtLevel > 5 ? '#ff4444' : '#aaa'}">${(dirtLevel * 10).toFixed(1)}%</span></div>`;
+            
             if (m.suffocating) {
                  html += `<div style="color:red; font-weight:bold; animation: pulse 0.5s infinite;">${t('inspector.suffocation')}</div>`;
                  html += `<div style="font-size:11px; color:#fca5a5;">${t('inspector.blocked_air')}</div>`;

@@ -1,4 +1,10 @@
 import { Game } from './core/game.js';
+import { Store } from './core/store.js';
+
+window.addCash = (amount = 10000) => {
+    Store.economy.usd += amount;
+    console.log(`[GM] Añadidos $${amount}. Saldo actual: $${Store.economy.usd}`);
+};
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');

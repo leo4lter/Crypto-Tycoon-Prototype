@@ -80,12 +80,6 @@ export function drawGhost(ctx, mode, x, y, isValid, rotation) {
                 count++;
             }
         }
-
-        // Mostrar costo total flotante
-        // Estimación rápida del precio (asumiendo que 'isValid' es true globalmente o recalcularlo)
-        // El precio depende del item. Obtenemos precio unitario del Hardware seleccionado si es minero.
-        // O precio hardcodeado si es otra cosa.
-        // Simplificación: Mostrar "Count: N"
         const p = gridToScreen(end.x, end.y);
         ctx.fillStyle = '#fff';
         ctx.font = 'bold 14px monospace';
@@ -345,29 +339,53 @@ export function drawWallAC(ctx, pos, grayscale = false) {
 }
 
 export function drawWalls(ctx) {
-    if (!Assets.loaded || !Assets.sprites['wall_section']) return;
+    const WALL_H = 80; // Altura de la pared
+    const T_W = CONFIG.TILE_W / 2;
+    const T_H = CONFIG.TILE_H / 2;
+    const GRID_MAX = CONFIG.GRID_SIZE;
 
-    const wallImg = Assets.sprites['wall_section'];
+    const colorBackLeft = '#1e293b';  // Sombra
+    const colorBackRight = '#334155'; // Luz
+    const borderColor = '#475569';
 
-    // Pared Norte (y=0, varía x) -> Borde Superior Derecho en ISO
-    // Pared Oeste (x=0, varía y) -> Borde Superior Izquierdo en ISO
+    ctx.save();
+    ctx.lineJoin = "round";
 
-    // Dibujar pared trasera (Oeste/Izquierda screen, x=0)
-    for (let y = 0; y < CONFIG.GRID_SIZE; y++) {
-        const p = gridToScreen(0, y);
-        // Offset para que la pared se dibuje "atrás" de la celda 0,y
-        // La pared debe estar en el borde 'externo' de la celda 0,y
-        // GridToScreen devuelve el centro o base de la celda.
-        // Wall sprite debe anclarse. Ajustar offset a ojo.
-        ctx.drawImage(wallImg, p.x - 32, p.y - 64, 64, 64);
+    // PARED OESTE (Borde izquierdo superior)
+    // Para girar esta pared al lado contrario, cambia el '0' por 'GRID_MAX' en gridToScreen
+    for (let y = 0; y < GRID_MAX; y++) {
+        const p = gridToScreen(0, y); 
+        
+        ctx.fillStyle = colorBackLeft;
+        ctx.beginPath();
+        ctx.moveTo(p.x - T_W, p.y + T_H);         // Punto Oeste del tile
+        ctx.lineTo(p.x - T_W, p.y + T_H - WALL_H); // Arriba
+        ctx.lineTo(p.x, p.y - WALL_H);             // Punto Norte arriba
+        ctx.lineTo(p.x, p.y);                     // Punto Norte abajo
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = borderColor;
+        ctx.stroke();
     }
 
-    // Dibujar pared trasera (Norte/Derecha screen, y=0)
-    for (let x = 0; x < CONFIG.GRID_SIZE; x++) {
+    // PARED NORTE (Borde derecho superior)
+    // Para girar esta pared al lado contrario, cambia el '0' por 'GRID_MAX' en gridToScreen
+    for (let x = 0; x < GRID_MAX; x++) {
         const p = gridToScreen(x, 0);
-        // Mismo sprite o espejado? Asumimos mismo por ahora o otro asset si hubiera 'wall_right'
-        ctx.drawImage(wallImg, p.x - 32, p.y - 64, 64, 64);
+
+        ctx.fillStyle = colorBackRight;
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);                     // Punto Norte abajo
+        ctx.lineTo(p.x, p.y - WALL_H);             // Punto Norte arriba
+        ctx.lineTo(p.x + T_W, p.y + T_H - WALL_H); // Arriba Este
+        ctx.lineTo(p.x + T_W, p.y + T_H);         // Punto Este tile
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = borderColor;
+        ctx.stroke();
     }
+
+    ctx.restore();
 }
 
 export function drawCable(ctx, a, b, grayscale = false) {

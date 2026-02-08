@@ -1,14 +1,12 @@
-
 export const Assets = {
     sprites: {},
     loaded: false,
 
     async loadAll() {
         const toLoad = {
-            'rack_basic': 'assets/sprites/rack_wire_full.svg',
-            'miner_basic': 'assets/sprites/pc_tower.png',
-            'wall_section': 'assets/sprites/wall_section.svg',
-            'ac_wall': 'assets/sprites/ac_wall.svg'
+            'rack_basic': './assets/sprites/rack_wire_full.svg',
+            'miner_basic': './assets/sprites/pc_tower.svg', 
+            'ac_wall': './assets/sprites/ac_wall.svg'
         };
 
         const promises = Object.entries(toLoad).map(([key, url]) => {
@@ -19,8 +17,8 @@ export const Assets = {
                     resolve();
                 };
                 img.onerror = () => {
-                    console.warn(`Failed to load asset: ${url}`);
-                    resolve(); // Resolve anyway to not block game
+                    console.error(`Error: No se encontró el asset en ${url}`);
+                    resolve(); 
                 };
                 img.src = url;
             });
@@ -28,6 +26,5 @@ export const Assets = {
 
         await Promise.all(promises);
         this.loaded = true;
-        console.log('Assets loaded');
     }
 };
