@@ -15,6 +15,8 @@ const dictionary = {
         'build.carpet': 'Construir: ALFOMBRA',
         'build.cleaner': 'Construir: LIMPIADOR',
         'build.panel': 'Construir: PANEL',
+        'build.ac_unit': 'Construir: AC SUELO',
+        'build.wall_ac': 'Construir: AC PARED',
         // Bindings
         'key.view_normal': 'VISTA NORMAL',
         'key.view_thermal': 'VISTA TÉRMICA',
@@ -31,6 +33,8 @@ const dictionary = {
         'key.tool_panel': 'HERR: PANEL',
         'key.tool_cleaner': 'HERR: LIMPIADOR',
         'key.tool_carpet': 'HERR: ALFOMBRA',
+        'key.tool_ac': 'HERR: AC SUELO',
+        'key.tool_wall_ac': 'HERR: AC PARED',
         'key.cycle_hw': 'CICLAR HARDWARE',
         'key.rotate': 'ROTAR',
     },

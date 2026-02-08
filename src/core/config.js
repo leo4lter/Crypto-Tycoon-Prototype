@@ -13,8 +13,9 @@ export const CONFIG = {
         MAX_TEMP: 85,          // Temperatura crítica
         AMBIENT: 20,           // Temperatura base
         DIFFUSION: 0.20,       // Velocidad de expansión
-        DISSIPATION: 0.008,    // Velocidad de enfriamiento
-        GENERATION_SCALE: 0.3, // Multiplicador de calor de los equipos
+        DISSIPATION: 0.005,    // Velocidad de enfriamiento (más lento)
+        GENERATION_SCALE: 0.8, // Multiplicador de calor de los equipos (agresivo)
+        INSULATION_FACTOR: 0.4,// Aislamiento de alfombras (retiene calor)
         EXPLOSION_HEAT: 300    // Calor generado al quemarse algo
     },
     RISK: {
@@ -46,6 +47,8 @@ export const CONFIG = {
         TOOL_CABLE: 'b',
         TOOL_PANEL: 'p',
         TOOL_CLEANER: 'l',
-        TOOL_CARPET: 'c'
+        TOOL_CARPET: 'c',
+        TOOL_AC: 'a',      // AC de Suelo
+        TOOL_WALL_AC: 'w'  // AC de Pared
     }
 };

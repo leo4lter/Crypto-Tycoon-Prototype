@@ -1,5 +1,6 @@
 import { Store } from './store.js';
 import { ECS } from './ecs.js';
+import { globalEventBus } from './eventBus.js';
 import { SimulationSystem } from '../systems/simulation.js';
 import { EconomySystem } from '../systems/economy.js'; 
 import { UISystem } from '../systems/ui.js';
@@ -9,13 +10,14 @@ import {
     drawGrid, drawMiner, drawSocket, drawCable, drawHeatMap, 
     drawNoiseMap, drawDirtMap, drawCarpet, drawCleaner, 
     drawPanel, drawConnectedCable, screenToGrid, drawRack,
-    drawSubsoilCable, drawGhost
+    drawSubsoilCable, drawGhost, drawACUnit, drawWallAC
 } from '../renderer/isometric.js';
 
 export class Game {
     constructor(ctx) {
         this.ctx = ctx;
         this.ecs = new ECS();
+        this.eventBus = globalEventBus;
         
         this.inputSystem = new InputSystem(this);
         this.simulationSystem = new SimulationSystem(this.ecs);
@@ -115,7 +117,9 @@ export class Game {
                 ...this.ecs.getEntitiesWith('position', 'miner').map(id => ({ id, type: 'miner' })),
                 ...this.ecs.getEntitiesWith('position', 'panel').map(id => ({ id, type: 'panel' })),
                 ...this.ecs.getEntitiesWith('position', 'cleaner').map(id => ({ id, type: 'cleaner' })),
-                ...this.ecs.getEntitiesWith('position', 'rack').map(id => ({ id, type: 'rack' }))
+                ...this.ecs.getEntitiesWith('position', 'rack').map(id => ({ id, type: 'rack' })),
+                ...this.ecs.getEntitiesWith('position', 'ac_unit').map(id => ({ id, type: 'ac_unit' })),
+                ...this.ecs.getEntitiesWith('position', 'wall_ac').map(id => ({ id, type: 'wall_ac' }))
             ];
             
             for (const item of entities) {
@@ -136,6 +140,10 @@ export class Game {
                             drawCleaner(this.ctx, pos, useGrayscale);
                         } else if (item.type === 'rack') {
                             drawRack(this.ctx, pos, useGrayscale);
+                        } else if (item.type === 'ac_unit') {
+                            drawACUnit(this.ctx, pos, useGrayscale);
+                        } else if (item.type === 'wall_ac') {
+                            drawWallAC(this.ctx, pos, useGrayscale);
                         }
                     }
                 });

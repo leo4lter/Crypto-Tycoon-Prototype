@@ -51,6 +51,8 @@ export class InputSystem {
         if (k === C.TOOL_PANEL) Store.buildMode = 'panel';
         if (k === C.TOOL_CLEANER) Store.buildMode = 'cleaner';
         if (k === C.TOOL_CARPET) Store.buildMode = 'carpet';
+        if (k === C.TOOL_AC) Store.buildMode = 'ac_unit';
+        if (k === C.TOOL_WALL_AC) Store.buildMode = 'wall_ac';
 
         if (k === C.CYCLE_HW) {
             e.preventDefault();
@@ -147,11 +149,22 @@ export class InputSystem {
         const hasRack = entities.some(id => this.ecs.components.rack?.has(id));
         const minersCount = entities.filter(id => this.ecs.components.miner?.has(id)).length;
         const hasObstacle = entities.some(id => 
-            this.ecs.components.panel?.has(id) || this.ecs.components.cleaner?.has(id)
+            this.ecs.components.panel?.has(id) || this.ecs.components.cleaner?.has(id) ||
+            this.ecs.components.ac_unit?.has(id) || this.ecs.components.wall_ac?.has(id)
         );
 
         if (mode === 'cable') {
             return { canBuild: !hasSubsoil };
+        }
+        if (mode === 'ac_unit') {
+             // Suelo, no conflictos con rack/panel
+             if (hasRack || hasObstacle || minersCount > 0) return { canBuild: false };
+             return { canBuild: true };
+        }
+        if (mode === 'wall_ac') {
+             // Pared
+             if (hasRack || hasObstacle || minersCount > 0) return { canBuild: false };
+             return { canBuild: true };
         }
         if (mode === 'rack') {
             if (minersCount > 0 || hasRack || hasObstacle) return { canBuild: false };
@@ -208,6 +221,11 @@ export class InputSystem {
         else if (mode === 'carpet') this.ecs.addComponent(id, 'carpet', { noiseReduction: 0.6 });
         else if (mode === 'cleaner') this.ecs.addComponent(id, 'cleaner', { power: 0.05 });
         else if (mode === 'panel') this.ecs.addComponent(id, 'panel', { absorption: 0.85 });
+        else if (mode === 'ac_unit') this.ecs.addComponent(id, 'ac_unit', { cooling: 50 });
+        else if (mode === 'wall_ac') {
+            this.ecs.addComponent(id, 'wall_ac', { cooling: 80 });
+            this.ecs.addComponent(id, 'panel', {}); // También actúa como obstáculo (pared)
+        }
     }
 
     handleDelete(gx, gy) {
