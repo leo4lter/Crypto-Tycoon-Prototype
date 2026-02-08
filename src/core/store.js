@@ -23,6 +23,7 @@ export const Store = {
     selectedHardwareIndex: 0,
     buildRotation: 0, 
     isPaused: false,
+    selectedEntityId: null,
     hover: { x: -1, y: -1, valid: false },
     heat: new Float32Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE),
     heatBuffer: new Float32Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE),

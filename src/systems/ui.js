@@ -15,6 +15,10 @@ export class UISystem {
         this.elMode = document.getElementById('ui-mode');
         this.elTool = document.getElementById('ui-tool');
 
+        // Elementos Inspector
+        this.elInspector = document.getElementById('inspector-panel');
+        this.elInspectorContent = document.getElementById('inspector-content');
+
         // Elementos del Menú de Configuración
         this.modal = document.getElementById('settings-modal');
         this.keysList = document.getElementById('keys-list');
@@ -73,6 +77,58 @@ export class UISystem {
             
             this.elTool.innerText = toolText;
         }
+
+        // 4. Inspector de Estructuras
+        this.updateInspector();
+    }
+
+    updateInspector() {
+        if (!this.elInspector || !this.elInspectorContent) return;
+
+        if (Store.selectedEntityId === null) {
+            this.elInspector.classList.add('hidden');
+            return;
+        }
+
+        const id = Store.selectedEntityId;
+        // Verificar si la entidad aún existe
+        if (!this.game.ecs.entities.has(id)) {
+            Store.selectedEntityId = null;
+            this.elInspector.classList.add('hidden');
+            return;
+        }
+
+        this.elInspector.classList.remove('hidden');
+        let html = '';
+
+        if (this.game.ecs.components.miner.has(id)) {
+            const m = this.game.ecs.components.miner.get(id);
+            const p = this.game.ecs.components.position.get(id);
+            const idx = p.x + p.y * Store.GRID;
+            const temp = Store.heat[idx] || 0;
+
+            html += `<div style="color:#00ff88; font-weight:bold;">MINERO (Slot ${m.slotIndex || 0})</div>`;
+            html += `<div>Estado: <span style="color:${m.on ? '#0f0':'#f00'}">${m.on ? 'ENCENDIDO' : 'APAGADO/SIN ENERGÍA'}</span></div>`;
+            html += `<div>Hashrate: ${m.hashrate} H/s</div>`;
+            html += `<div>Consumo: ${m.watts} W</div>`;
+            html += `<div>Temp Local: ${temp.toFixed(1)}°C</div>`;
+            if (m.broken) html += `<div style="color:red; font-weight:bold;">¡ROTO! REPARAR... (WIP)</div>`;
+        }
+        else if (this.game.ecs.components.rack.has(id)) {
+            const r = this.game.ecs.components.rack.get(id);
+            html += `<div style="color:#fbbf24; font-weight:bold;">RACK DE SERVIDORES</div>`;
+            html += `<div>Slots Totales: ${r.slots || 6}</div>`;
+        }
+        else if (this.game.ecs.components.cable.has(id)) {
+             html += `<div style="color:#3b82f6; font-weight:bold;">CABLE DE ALTA TENSIÓN</div>`;
+             html += `<div>Transmisión: ESTABLE</div>`;
+        }
+        else {
+            html += `<div style="color:#94a3b8;">OBJETO DESCONOCIDO</div>`;
+            html += `<div>ID: ${id}</div>`;
+        }
+
+        this.elInspectorContent.innerHTML = html;
     }
 
     // === LÓGICA DEL MENÚ DE CONFIGURACIÓN ===
@@ -104,8 +160,8 @@ export class UISystem {
             row.className = 'key-row';
 
             const label = document.createElement('span');
-            // Convierte "VIEW_THERMAL" en "View Thermal" para que se vea bonito
-            label.innerText = action.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+            // Usar i18n para el nombre de la acción
+            label.innerText = t(`key.${action.toLowerCase()}`) || action;
 
             const btn = document.createElement('button');
             btn.className = 'key-btn';

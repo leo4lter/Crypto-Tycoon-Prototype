@@ -17,6 +17,20 @@ export class InputSystem {
     }
 
     handleKey(e) {
+        // Interceptar si estamos rebindeando una tecla en el menú de UI
+        if (this.game.uiSystem.waitingForKey) {
+            this.game.uiSystem.applyRebind(e.key);
+            e.stopPropagation();
+            return;
+        }
+
+        if (e.key === 'Escape') {
+            Store.buildMode = null;
+            Store.hover.valid = false;
+            // Cerrar inspector si está abierto
+            if (Store.selectedEntityId !== null) Store.selectedEntityId = null;
+        }
+
         const k = e.key;
         const C = CONFIG.CONTROLS;
 
@@ -72,17 +86,51 @@ export class InputSystem {
     }
 
     handleMouse(e) {
-        if (Store.hover.x === -1) return;
+        if (Store.hover.x === -1) {
+            // Clic en el vacío: Deseleccionar
+            if (e.button === 0) Store.selectedEntityId = null;
+            return;
+        }
 
         if (e.button === 2) {
             this.handleDelete(Store.hover.x, Store.hover.y);
             return;
         }
 
+        // Lógica de Selección (Inspector)
+        // Si NO estamos en modo construcción activo (o es 'none'/'normal' implícitamente si buildMode fuera null, pero aquí es string)
+        // En este juego, buildMode siempre tiene un valor por defecto ('miner'), así que comprobaremos si estamos sobre una entidad existente.
+        const entitiesAtCursor = this.ecs.getEntitiesWith('position').filter(id => {
+            const p = this.ecs.components.position.get(id);
+            return p.x === Store.hover.x && p.y === Store.hover.y;
+        });
+
+        // Prioridad de selección: Minero > Rack > Otros
+        if (e.button === 0 && entitiesAtCursor.length > 0) {
+            // Si hacemos clic en algo existente, lo seleccionamos en lugar de construir
+            // OJO: Esto podría conflictuar con construir encima.
+            // Regla: Si no podemos construir aquí (ocupado), entonces seleccionamos.
+            const status = this.getBuildStatus(Store.hover.x, Store.hover.y);
+
+            if (!status.canBuild) {
+                // Buscar la entidad más relevante
+                const miner = entitiesAtCursor.find(id => this.ecs.components.miner?.has(id));
+                const rack = entitiesAtCursor.find(id => this.ecs.components.rack?.has(id));
+                const other = entitiesAtCursor[0];
+
+                Store.selectedEntityId = miner || rack || other;
+                return;
+            }
+        }
+
+        // Si no seleccionamos nada, intentamos construir
         const status = this.getBuildStatus(Store.hover.x, Store.hover.y);
         
         if (status.canBuild) {
             this.executeBuild(Store.hover.x, Store.hover.y, status);
+        } else {
+            // Si no se pudo construir y tampoco seleccionamos (por ejemplo clic en vacio valido pero sin dinero), deseleccionar
+            Store.selectedEntityId = null;
         }
     }
 
@@ -163,6 +211,10 @@ export class InputSystem {
     }
 
     handleDelete(gx, gy) {
+        // Al hacer clic derecho, también cancelamos el modo construcción
+        Store.buildMode = null;
+        Store.hover.valid = false;
+
         const entities = this.ecs.getEntitiesWith('position').filter(id => {
             const p = this.ecs.components.position.get(id);
             return p.x === gx && p.y === gy;
