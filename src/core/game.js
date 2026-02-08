@@ -23,7 +23,7 @@ export class Game {
         this.simulationSystem = new SimulationSystem(this.ecs);
         this.economySystem = new EconomySystem(this.ecs);
         this.hierarchySystem = new HierarchySystem(this.ecs);
-        this.uiSystem = new UISystem();
+        this.uiSystem = new UISystem(this);
 
         Store.layerView = 'normal'; 
         Store.viewMode = 'normal';
