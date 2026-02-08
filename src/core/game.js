@@ -4,6 +4,7 @@ import { SimulationSystem } from '../systems/simulation.js';
 import { EconomySystem } from '../systems/economy.js'; 
 import { UISystem } from '../systems/ui.js';
 import { InputSystem } from '../systems/input.js';
+import { HierarchySystem } from '../systems/hierarchy.js';
 import {
     drawGrid, drawMiner, drawSocket, drawCable, drawHeatMap, 
     drawNoiseMap, drawDirtMap, drawCarpet, drawCleaner, 
@@ -19,6 +20,7 @@ export class Game {
         this.inputSystem = new InputSystem(this);
         this.simulationSystem = new SimulationSystem(this.ecs);
         this.economySystem = new EconomySystem(this.ecs);
+        this.hierarchySystem = new HierarchySystem(this.ecs);
         this.uiSystem = new UISystem();
 
         Store.layerView = 'normal'; 
@@ -41,6 +43,7 @@ export class Game {
         if (this.acc > 250) this.acc = 250;
 
         while (this.acc >= this.TIME_STEP) {
+            this.hierarchySystem.update();
             this.simulationSystem.update(); 
             this.economySystem.update(this.TIME_STEP);
             this.acc -= this.TIME_STEP;
