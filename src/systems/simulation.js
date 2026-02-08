@@ -1,4 +1,5 @@
 import { Store } from '../core/store.js';
+import { CONFIG } from '../core/config.js';
 
 export class SimulationSystem {
     constructor(ecs) {
@@ -133,27 +134,106 @@ export class SimulationSystem {
     updateHeat() {
         const GRID = Store.GRID;
         const AMBIENT_TEMP = 20; 
-        const DIFFUSION_RATE = 0.20; 
-        const DISSIPATION_RATE = 0.02; 
-        const HEAT_GENERATION_SCALE = 0.15; 
+        const DIFFUSION_RATE = CONFIG.HEAT.DIFFUSION;
+        const DISSIPATION_RATE = CONFIG.HEAT.DISSIPATION;
+        const HEAT_GENERATION_SCALE = CONFIG.HEAT.GENERATION_SCALE;
+        const INSULATION_FACTOR = CONFIG.HEAT.INSULATION_FACTOR || 0.4;
 
-        // 1. Inyectar calor
+        // 0. Copiar buffer anterior (paso de simulación)
+        // Usamos set() para copiar rápido los valores
+        Store.heatBuffer.set(Store.heat);
+
+        // 1. Inyectar calor (Miners) con lógica DIRECCIONAL
         const miners = this.ecs.getEntitiesWith('position', 'miner');
         for (const m of miners) {
             const pos = this.ecs.components.position.get(m);
             const miner = this.ecs.components.miner.get(m);
             
+            // Reset suffocation flag
+            miner.suffocating = false;
+
             if (miner.on) {
                 const idx = pos.x + pos.y * GRID;
-                Store.heat[idx] += (miner.heatOutput || 1.0) * HEAT_GENERATION_SCALE; 
+                const heatAmount = (miner.heatOutput || 1.0) * HEAT_GENERATION_SCALE;
+
+                // Lógica de "back" direction basada en rotación (isometric)
+                // 0: Down-Right (+x), Back: (-x)
+                // 1: Down-Left (+y), Back: (-y)
+                // 2: Top-Left (-x), Back: (+x)
+                // 3: Top-Right (-y), Back: (+y)
+                let backX = pos.x;
+                let backY = pos.y;
+                const rot = pos.rotation || 0;
+
+                if (rot === 0) backX -= 1;
+                else if (rot === 1) backY -= 1;
+                else if (rot === 2) backX += 1;
+                else if (rot === 3) backY += 1;
+
+                // Verificar si la celda trasera es válida y si está obstruida
+                const isBackValid = (backX >= 0 && backX < GRID && backY >= 0 && backY < GRID);
+                let isBlocked = false;
+
+                if (isBackValid) {
+                    // Chequear obstáculos (Pared, Panel, Rack, Otro Minero)
+                    isBlocked = this.getObstacleAt(backX, backY);
+                } else {
+                    isBlocked = true; // Borde del mapa cuenta como bloqueo
+                }
+
+                if (isBlocked) {
+                    // AHOGO TÉRMICO: El calor se acumula en el origen multiplicándose
+                    Store.heatBuffer[idx] += heatAmount * 3.0;
+                    miner.suffocating = true;
+                } else {
+                    // Flujo normal: 80% atrás, 20% en origen (radiación chasis)
+                    const backIdx = backX + backY * GRID;
+                    Store.heatBuffer[backIdx] += heatAmount * 0.8;
+                    Store.heatBuffer[idx] += heatAmount * 0.2;
+                }
             }
         }
 
-        // 2. Difusión
+        // 2. Refrigeración Activa (AC)
+        const acUnits = this.ecs.getEntitiesWith('position', 'ac_unit');
+        for (const ac of acUnits) {
+            const pos = this.ecs.components.position.get(ac);
+            const cooling = this.ecs.components.ac_unit.get(ac).cooling || 50;
+            const idx = pos.x + pos.y * GRID;
+
+            // Enfría la propia celda
+            Store.heatBuffer[idx] = Math.max(AMBIENT_TEMP, Store.heatBuffer[idx] - cooling);
+
+            // Enfría las 4 vecinas (AC de suelo es omnidireccional simple por ahora)
+             const neighbors = [
+                { nx: pos.x + 1, ny: pos.y }, { nx: pos.x - 1, ny: pos.y },
+                { nx: pos.x, ny: pos.y + 1 }, { nx: pos.x, ny: pos.y - 1 }
+            ];
+            for (const n of neighbors) {
+                if (n.nx >= 0 && n.nx < GRID && n.ny >= 0 && n.ny < GRID) {
+                    const nIdx = n.nx + n.ny * GRID;
+                    Store.heatBuffer[nIdx] = Math.max(AMBIENT_TEMP, Store.heatBuffer[nIdx] - (cooling * 0.5));
+                }
+            }
+        }
+
+        const wallACs = this.ecs.getEntitiesWith('position', 'wall_ac');
+        for (const ac of wallACs) {
+            const pos = this.ecs.components.position.get(ac);
+            const cooling = this.ecs.components.wall_ac.get(ac).cooling || 80;
+            const idx = pos.x + pos.y * GRID;
+             // AC de Pared enfría agresivamente su celda
+            Store.heatBuffer[idx] = Math.max(AMBIENT_TEMP, Store.heatBuffer[idx] - cooling);
+        }
+
+        // 3. Difusión y Disipación
+        // Copiamos buffer a temporal para cálculo de difusión síncrono
+        const prevHeat = new Float32Array(Store.heatBuffer);
+
         for (let y = 0; y < GRID; y++) {
             for (let x = 0; x < GRID; x++) {
                 const idx = x + y * GRID;
-                const currentTemp = Store.heat[idx];
+                const currentTemp = prevHeat[idx];
 
                 let neighborTempSum = 0;
                 let neighborCount = 0;
@@ -165,18 +245,30 @@ export class SimulationSystem {
 
                 for (const n of neighbors) {
                     if (n.nx >= 0 && n.nx < GRID && n.ny >= 0 && n.ny < GRID) {
-                        neighborTempSum += Store.heat[n.nx + n.ny * GRID];
+                        neighborTempSum += prevHeat[n.nx + n.ny * GRID];
                         neighborCount++;
                     }
                 }
 
                 const avgNeighborTemp = neighborCount > 0 ? neighborTempSum / neighborCount : currentTemp;
+
+                // Difusión
                 let newTemp = currentTemp + (avgNeighborTemp - currentTemp) * DIFFUSION_RATE;
-                newTemp = newTemp + (AMBIENT_TEMP - newTemp) * DISSIPATION_RATE;
+
+                // Disipación (Enfriamiento pasivo)
+                // Aislamiento: Si hay alfombra, disipa MENOS calor (retiene más)
+                let dissipation = DISSIPATION_RATE;
+                if (this.getCarpetAt(x, y)) {
+                    dissipation *= (1.0 - INSULATION_FACTOR); // Reducir disipación
+                }
+
+                newTemp = newTemp + (AMBIENT_TEMP - newTemp) * dissipation;
 
                 Store.heatBuffer[idx] = newTemp;
             }
         }
+
+        // Aplicar buffer al estado real
         Store.heat.set(Store.heatBuffer);
     }
 
@@ -195,7 +287,10 @@ export class SimulationSystem {
                     let amount = 0;
                     const dist = Math.abs(dx) + Math.abs(dy);
                     if (dist === 0) amount = 40; else if (dist === 1) amount = 25; else amount = 15;
-                    if (this.getCarpetAt(x, y)) amount *= 0.4;
+
+                    // Alfombras reducen la generación/propagación de ruido en su celda
+                    if (this.getCarpetAt(x, y)) amount *= 0.6; // Reducción del 40%
+
                     if (this.getPanelAt(x, y)) amount *= 0.15;
                     Store.noise[x + y * Store.GRID] += amount;
                 }
@@ -252,6 +347,22 @@ export class SimulationSystem {
     getPanelAt(x, y) {
         return this.ecs.getEntitiesWith('position', 'panel').some(id => {
             const p = this.ecs.components.position.get(id); return p.x === x && p.y === y;
+        });
+    }
+
+    getObstacleAt(x, y) {
+        // Devuelve true si hay algo que bloquee flujo de aire (Pared, Panel, Minero, Rack, WallAC)
+        return this.ecs.getEntitiesWith('position').some(id => {
+            const p = this.ecs.components.position.get(id);
+            if (p.x !== x || p.y !== y) return false;
+
+            // Componentes que bloquean
+            return (
+                this.ecs.components.panel?.has(id) ||
+                this.ecs.components.rack?.has(id) ||
+                this.ecs.components.miner?.has(id) ||
+                this.ecs.components.wall_ac?.has(id)
+            );
         });
     }
 }

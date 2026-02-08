@@ -106,12 +106,19 @@ export class UISystem {
             const p = this.game.ecs.components.position.get(id);
             const idx = p.x + p.y * Store.GRID;
             const temp = Store.heat[idx] || 0;
+            const hasCarpet = this.game.simulationSystem.getCarpetAt(p.x, p.y);
 
             html += `<div style="color:#00ff88; font-weight:bold;">MINERO (Slot ${m.slotIndex || 0})</div>`;
             html += `<div>Estado: <span style="color:${m.on ? '#0f0':'#f00'}">${m.on ? 'ENCENDIDO' : 'APAGADO/SIN ENERGÍA'}</span></div>`;
             html += `<div>Hashrate: ${m.hashrate} H/s</div>`;
             html += `<div>Consumo: ${m.watts} W</div>`;
-            html += `<div>Temp Local: ${temp.toFixed(1)}°C</div>`;
+            html += `<div>Temp Local: ${temp.toFixed(1)}°C ${hasCarpet ? '<span style="color:#f59e0b">(Aislado)</span>' : ''}</div>`;
+
+            if (m.suffocating) {
+                 html += `<div style="color:red; font-weight:bold; animation: pulse 0.5s infinite;">¡AHOGO TÉRMICO!</div>`;
+                 html += `<div style="font-size:11px; color:#fca5a5;">(Salida de aire bloqueada)</div>`;
+            }
+
             if (m.broken) html += `<div style="color:red; font-weight:bold;">¡ROTO! REPARAR... (WIP)</div>`;
         }
         else if (this.game.ecs.components.rack.has(id)) {

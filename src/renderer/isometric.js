@@ -210,14 +210,58 @@ export function drawPanel(ctx, pos, grayscale = false) {
 
 export function drawCarpet(ctx, pos, grayscale = false) {
     const p = gridToScreen(pos.x, pos.y);
-    ctx.fillStyle = grayscale ? 'rgba(0, 0, 0, 0.2)' : 'rgba(150, 50, 200, 0.6)';
+    // Rojo oscuro mate para denotar aislamiento/tela
+    ctx.fillStyle = grayscale ? 'rgba(0, 0, 0, 0.2)' : '#7f1d1d';
     ctx.beginPath();
-    ctx.moveTo(p.x, p.y + 10);
-    ctx.lineTo(p.x + 18, p.y + 20);
-    ctx.lineTo(p.x, p.y + 30);
-    ctx.lineTo(p.x - 18, p.y + 20);
+    ctx.moveTo(p.x, p.y + 14);
+    ctx.lineTo(p.x + 24, p.y + 26);
+    ctx.lineTo(p.x, p.y + 38);
+    ctx.lineTo(p.x - 24, p.y + 26);
     ctx.closePath();
     ctx.fill();
+    // Textura simple (ruido)
+    if (!grayscale) {
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+        ctx.fillRect(p.x - 5, p.y + 24, 4, 4);
+        ctx.fillRect(p.x + 5, p.y + 28, 4, 4);
+    }
+}
+
+export function drawACUnit(ctx, pos, grayscale = false) {
+    const p = gridToScreen(pos.x, pos.y);
+    const drawY = p.y - 10;
+
+    ctx.fillStyle = grayscale ? '#444' : '#dbeafe'; // Blanco azulado
+    ctx.fillRect(p.x - 12, drawY, 24, 20);
+
+    // Ventilador
+    ctx.fillStyle = grayscale ? '#222' : '#1e40af';
+    ctx.beginPath();
+    ctx.arc(p.x, drawY + 10, 8, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Aspas girando (simulado)
+    const time = performance.now() / 100;
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(p.x + Math.cos(time)*8, drawY+10 + Math.sin(time)*8);
+    ctx.lineTo(p.x - Math.cos(time)*8, drawY+10 - Math.sin(time)*8);
+    ctx.stroke();
+}
+
+export function drawWallAC(ctx, pos, grayscale = false) {
+    const p = gridToScreen(pos.x, pos.y);
+    // Pegado arriba ("pared")
+    const drawY = p.y - 30;
+
+    ctx.fillStyle = grayscale ? '#333' : '#e2e8f0';
+    ctx.fillRect(p.x - 14, drawY, 28, 12);
+
+    // Rejillas
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(p.x - 10, drawY + 2, 20, 2);
+    ctx.fillRect(p.x - 10, drawY + 6, 20, 2);
 }
 
 export function drawCable(ctx, a, b, grayscale = false) {
