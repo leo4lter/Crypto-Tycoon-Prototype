@@ -95,6 +95,7 @@ export class InputSystem {
         const rect = this.ctx.canvas.getBoundingClientRect();
         const mx = e.clientX - rect.left;
         const my = e.clientY - rect.top;
+        // Centralizamos lógica usando screenToGrid importado de isometric.js
         const { gx, gy } = screenToGrid(mx, my);
 
         if (Utils.isValid(gx, gy)) {
@@ -252,17 +253,19 @@ export class InputSystem {
                 const hasSubsoil = entities.some(id => this.ecs.components.cable?.has(id));
                 const hasGround = entities.some(id => this.ecs.components.carpet?.has(id));
                 const hasRack = entities.some(id => this.ecs.components.rack?.has(id));
-                const minersCount = entities.filter(id => this.ecs.components.miner?.has(id)).length;
                 // Ahora usamos 'collider' o comprobamos componentes específicos que actúan como obstáculos
-                // IMPORTANTE: hasObstacle solo debe ser true si hay algo en ESTA celda específica (tx, ty).
                 // El filtro `entities` ya filtra por `p.x === tx && p.y === ty`, así que `entities` solo contiene objetos en esta celda.
 
-                const hasObstacle = entities.some(id =>
+                // Eliminamos redundancia: minersCount > 0 implica hasObstacle si miner está en la lista de obstáculos.
+                // AC y otros sólidos también son obstáculos.
+                // Permitimos AC sobre alfombra (carpet no es obstáculo).
+
+                const hasSolidObstacle = entities.some(id =>
                     this.ecs.components.panel?.has(id) ||
                     this.ecs.components.cleaner?.has(id) ||
                     this.ecs.components.ac_unit?.has(id) ||
                     this.ecs.components.wall_ac?.has(id) ||
-                    this.ecs.components.miner?.has(id) ||
+                    this.ecs.components.miner?.has(id) || // Minero es solido para otros mineros
                     (this.ecs.components.collider?.has(id) && this.ecs.components.collider.get(id).isSolid)
                 );
 
@@ -270,38 +273,41 @@ export class InputSystem {
                     if (hasSubsoil) return { canBuild: false };
                 }
                 else if (mode === 'ac_unit' || mode === 'panel' || mode === 'cleaner') {
-                    if (hasRack || hasObstacle || minersCount > 0) return { canBuild: false };
+                    // AC no puede construirse si hay algo solido (rack, minero, etc)
+                    if (hasRack || hasSolidObstacle) return { canBuild: false };
                 }
                 else if (mode === 'wall_ac') {
                     // Solo permitido en bordes (x=0 o y=0)
-                    if (tx !== 0 && ty !== 0) return { canBuild: false }; // Usar tx/ty del loop
-                    if (hasRack || hasObstacle || minersCount > 0) return { canBuild: false };
+                    if (tx !== 0 && ty !== 0) return { canBuild: false };
+                    if (hasRack || hasSolidObstacle) return { canBuild: false };
                 }
                 else if (mode === 'rack') {
-                    if (minersCount > 0 || hasRack || hasObstacle) return { canBuild: false };
+                    if (hasSolidObstacle || hasRack) return { canBuild: false };
                 }
                 else if (mode === 'miner') {
-                    if (hasObstacle) return { canBuild: false };
+                    if (hasSolidObstacle) {
+                        // Si hay obstáculo, fallamos, A MENOS que sea un Rack y quepan más mineros.
+                        // Si el obstáculo ES un rack, verificamos capacidad.
+                        if (!hasRack) return { canBuild: false };
+                    }
 
                     const stats = HARDWARE_DB[Store.selectedHardwareIndex];
                     if (Store.economy.usd < stats.price) return { canBuild: false };
 
                     let slot = 0;
                     if (hasRack) {
-                        // Si hay rack, asumimos que ponemos DENTRO del rack.
-                        // Los racks ignoran multi-tile visual por ahora (se apilan),
-                        // pero si es un objeto grande (2x1), ¿cabe en un rack de 1x1?
-                        // Simplificación: Objetos grandes NO entran en Racks estándar.
-                        if (width > 1 || height > 1) return { canBuild: false }; // Solo 1x1 en racks
-
+                        if (width > 1 || height > 1) return { canBuild: false }; // Multi-tile no entra en rack
                         if (minersCount >= 6) return { canBuild: false };
                         slot = minersCount;
                     } else {
+                        // Si no hay rack, pero hay obstaculo (ya chequeado arriba, salvo que sea rack), fallamos.
+                        // Si hasSolidObstacle es true y NO es rack -> return false ya ejecutado o cubierto.
+                        // Si hay minero en el suelo (hasSolidObstacle es true), fallamos.
+                        // Solo permitimos si count es 0 (suelo vacio).
                         if (minersCount >= 1) return { canBuild: false };
                         slot = 0;
                     }
-                    // Si es multi-tile, solo retornamos true si TODAS las celdas validaron.
-                    // Si estamos en la última iteración del loop y todo bien:
+
                     if (dx === width - 1 && dy === height - 1) {
                          return { canBuild: true, slot: slot, price: stats.price, width, height };
                     }
