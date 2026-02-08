@@ -11,7 +11,7 @@ import {
     drawGrid, drawMiner, drawSocket, drawCable, drawHeatMap, 
     drawNoiseMap, drawDirtMap, drawCarpet, drawCleaner, 
     drawPanel, drawConnectedCable, screenToGrid, drawRack,
-    drawSubsoilCable, drawGhost, drawACUnit, drawWallAC
+    drawSubsoilCable, drawGhost, drawACUnit, drawWallAC, drawWalls
 } from '../renderer/isometric.js';
 
 export class Game {
@@ -69,7 +69,10 @@ export class Game {
         if (Store.viewMode === 'temperature') drawHeatMap(this.ctx);
         else if (Store.viewMode === 'noise') drawNoiseMap(this.ctx);
         else if (Store.viewMode === 'dirt') drawDirtMap(this.ctx);
-        else drawGrid(this.ctx, isElecMode); 
+        else {
+            drawGrid(this.ctx, isElecMode);
+            drawWalls(this.ctx); // Dibujar paredes después del grid pero antes de entidades
+        }
 
         const cablesSet = new Set();
         const socketsSet = new Set();

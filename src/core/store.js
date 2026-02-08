@@ -25,6 +25,7 @@ export const Store = {
     isPaused: false,
     selectedEntityId: null,
     hover: { x: -1, y: -1, valid: false },
+    dragLine: null,
     heat: new Float32Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE),
     heatBuffer: new Float32Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE),
     noise: new Float32Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE),

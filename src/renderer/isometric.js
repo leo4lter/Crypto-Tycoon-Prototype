@@ -64,6 +64,39 @@ function drawDiamond(ctx, x, y, color, strokeColor) {
 }
 
 export function drawGhost(ctx, mode, x, y, isValid, rotation) {
+    // Si hay una línea de arrastre, dibujamos múltiples fantasmas
+    if (Store.dragLine) {
+        const start = Store.dragLine.start;
+        const end = Store.dragLine.end;
+        const minX = Math.min(start.x, end.x);
+        const maxX = Math.max(start.x, end.x);
+        const minY = Math.min(start.y, end.y);
+        const maxY = Math.max(start.y, end.y);
+
+        let count = 0;
+        for (let ix = minX; ix <= maxX; ix++) {
+            for (let iy = minY; iy <= maxY; iy++) {
+                drawSingleGhost(ctx, mode, ix, iy, isValid, rotation);
+                count++;
+            }
+        }
+
+        // Mostrar costo total flotante
+        // Estimación rápida del precio (asumiendo que 'isValid' es true globalmente o recalcularlo)
+        // El precio depende del item. Obtenemos precio unitario del Hardware seleccionado si es minero.
+        // O precio hardcodeado si es otra cosa.
+        // Simplificación: Mostrar "Count: N"
+        const p = gridToScreen(end.x, end.y);
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 14px monospace';
+        ctx.fillText(`${count}x`, p.x + 20, p.y);
+
+    } else {
+        drawSingleGhost(ctx, mode, x, y, isValid, rotation);
+    }
+}
+
+function drawSingleGhost(ctx, mode, x, y, isValid, rotation) {
     const p = gridToScreen(x, y);
     ctx.save();
     ctx.globalAlpha = 0.6;
@@ -281,16 +314,60 @@ export function drawACUnit(ctx, pos, grayscale = false) {
 
 export function drawWallAC(ctx, pos, grayscale = false) {
     const p = gridToScreen(pos.x, pos.y);
-    // Pegado arriba ("pared")
     const drawY = p.y - 30;
 
-    ctx.fillStyle = grayscale ? '#333' : '#e2e8f0';
-    ctx.fillRect(p.x - 14, drawY, 28, 12);
+    if (!grayscale && Assets.loaded && Assets.sprites['ac_wall']) {
+        ctx.save();
+        // Determinar rotación basada en posición (x=0 -> mira derecha/abajo, y=0 -> mira izquierda/abajo)
+        // Sprite base asume estar en pared "izquierda" (y=0) mirando al Sur/Este?
+        // Vamos a asumir el sprite encaja en y=0. Si está en x=0, rotamos/espejamos.
 
-    // Rejillas
-    ctx.fillStyle = '#1e293b';
-    ctx.fillRect(p.x - 10, drawY + 2, 20, 2);
-    ctx.fillRect(p.x - 10, drawY + 6, 20, 2);
+        if (pos.x === 0) {
+             // Pared Izquierda (Oeste) -> Mira al Este
+             // Transformar contexto para espejo o rotación si el sprite no es simétrico
+             // Por simplicidad, dibujamos igual por ahora o asumimos el sprite es frontal
+             // Si el sprite es 'ac_wall.svg', dibujamos.
+             ctx.drawImage(Assets.sprites['ac_wall'], p.x - 16, drawY, 32, 16);
+        } else {
+             // Pared Derecha (Norte/y=0)
+             ctx.drawImage(Assets.sprites['ac_wall'], p.x - 16, drawY, 32, 16);
+        }
+        ctx.restore();
+    } else {
+        // Fallback
+        ctx.fillStyle = grayscale ? '#333' : '#e2e8f0';
+        ctx.fillRect(p.x - 14, drawY, 28, 12);
+
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(p.x - 10, drawY + 2, 20, 2);
+        ctx.fillRect(p.x - 10, drawY + 6, 20, 2);
+    }
+}
+
+export function drawWalls(ctx) {
+    if (!Assets.loaded || !Assets.sprites['wall_section']) return;
+
+    const wallImg = Assets.sprites['wall_section'];
+
+    // Pared Norte (y=0, varía x) -> Borde Superior Derecho en ISO
+    // Pared Oeste (x=0, varía y) -> Borde Superior Izquierdo en ISO
+
+    // Dibujar pared trasera (Oeste/Izquierda screen, x=0)
+    for (let y = 0; y < CONFIG.GRID_SIZE; y++) {
+        const p = gridToScreen(0, y);
+        // Offset para que la pared se dibuje "atrás" de la celda 0,y
+        // La pared debe estar en el borde 'externo' de la celda 0,y
+        // GridToScreen devuelve el centro o base de la celda.
+        // Wall sprite debe anclarse. Ajustar offset a ojo.
+        ctx.drawImage(wallImg, p.x - 32, p.y - 64, 64, 64);
+    }
+
+    // Dibujar pared trasera (Norte/Derecha screen, y=0)
+    for (let x = 0; x < CONFIG.GRID_SIZE; x++) {
+        const p = gridToScreen(x, 0);
+        // Mismo sprite o espejado? Asumimos mismo por ahora o otro asset si hubiera 'wall_right'
+        ctx.drawImage(wallImg, p.x - 32, p.y - 64, 64, 64);
+    }
 }
 
 export function drawCable(ctx, a, b, grayscale = false) {
