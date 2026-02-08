@@ -13,16 +13,39 @@ export class HierarchySystem {
             const parentId = parentComp.parentId;
 
             // Check if parent entity exists and has position
-            // We use 'this.ecs.entities.has(parentId)' to ensure parent is alive
             if (this.ecs.entities.has(parentId) && this.ecs.components.position.has(parentId)) {
                 const parentPos = this.ecs.components.position.get(parentId);
                 const childPos = this.ecs.components.position.get(childId);
 
-                // Update child position to match parent position
-                // Logic: In this game, children (like miners in racks) occupy the same grid cell as the parent.
-                // Visual offset is handled by the renderer using 'slotIndex' or similar properties.
+                // 1. Sync Base Grid Position
                 childPos.x = parentPos.x;
                 childPos.y = parentPos.y;
+
+                // 2. Rack Stacking Logic
+                // Check if the parent entity is actually a 'rack'
+                const isRack = this.ecs.components.rack && this.ecs.components.rack.has(parentId);
+
+                if (isRack) {
+                    const slotIndex = parentComp.slotIndex || 0;
+
+                    // Calculate Z (Height)
+                    // Base height from parent (usually 0) + Slot Height
+                    const parentZ = parentPos.z || 0;
+                    childPos.z = parentZ + (slotIndex * 15);
+
+                    // Calculate Local Offsets for Side-by-Side placement
+                    // Even indices slightly to one side, Odd to the other
+                    const isEven = (slotIndex % 2 === 0);
+                    // Adjust these values to shift them visually within the tile
+                    childPos.offsetX = isEven ? -2 : 2;
+                    childPos.offsetY = isEven ? -2 : 2;
+
+                } else {
+                    // Default behavior for non-rack parents
+                    childPos.z = parentPos.z || 0;
+                    childPos.offsetX = 0;
+                    childPos.offsetY = 0;
+                }
             }
         }
     }

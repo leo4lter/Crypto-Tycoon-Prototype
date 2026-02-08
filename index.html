@@ -106,8 +106,13 @@
         <div id="stats-panel" class="hud-panel">
             <div class="label">RENDIMIENTO</div>
             <div class="value"><span id="ui-fps">60</span> FPS</div>
+
             <div class="label" style="margin-top:8px">RED ELÉCTRICA</div>
             <div class="value"><span id="ui-watts">0</span> W</div>
+
+            <div class="label" style="margin-top:8px">CAPITAL</div>
+            <div class="value" style="color: #4ade80;"><span id="ui-money">0</span></div>
+            <div class="value" style="color: #fcd34d; font-size: 14px;"><span id="ui-btc">0</span></div>
         </div>
 
         <div id="info-panel" class="hud-panel">
@@ -123,30 +128,23 @@
             <div><span class="key">1-3</span> Capas | <span class="key">T/E</span> Vistas</div>
             <div style="margin-top:4px"><span class="key">M</span> Minero | <span class="key">K</span> Rack | <span class="key">B</span> Cable</div>
             <div style="margin-top:4px"><span class="key">Click Der</span> Borrar</div>
-        </div>
-    </div>
-    <div id="stats-panel" class="hud-panel">
-            <div class="label">RENDIMIENTO</div>
-            <div class="value"><span id="ui-fps">60</span> FPS</div>
-            
-            <div class="label" style="margin-top:8px">RED ELÉCTRICA</div>
-            <div class="value"><span id="ui-watts">0</span> W</div>
-
-            <div class="label" style="margin-top:8px">CAPITAL</div>
-            <div class="value" style="color: #4ade80;"><span id="ui-money">0</span></div>
-            <div class="value" style="color: #fcd34d; font-size: 14px;"><span id="ui-btc">0</span></div>
-        </div>
-        <div id="settings-modal" class="modal hidden">
-    <div class="modal-content">
-        <h2>CONFIGURACIÓN DE CONTROLES</h2>
-        <div id="keys-list" class="keys-grid">
+            <div style="margin-top:8px">
+                <button id="btn-settings" class="key-btn" style="font-size:10px; padding:4px 8px;">CONFIGURACIÓN</button>
             </div>
-        <div class="modal-actions">
-            <button id="btn-reset" class="btn-secondary">Restaurar</button>
-            <button id="btn-close" class="btn-primary">Guardar y Cerrar</button>
         </div>
     </div>
-</div>
+
+    <div id="settings-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>CONFIGURACIÓN DE CONTROLES</h2>
+            <div id="keys-list" class="keys-grid">
+            </div>
+            <div class="modal-actions">
+                <button id="btn-reset" class="btn-secondary">Restaurar</button>
+                <button id="btn-close" class="btn-primary">Guardar y Cerrar</button>
+            </div>
+        </div>
+    </div>
     <script type="module" src="./src/main.js"></script>
 </body>
 </html>

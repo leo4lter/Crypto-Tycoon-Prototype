@@ -26,6 +26,9 @@ export class UISystem {
         const btnReset = document.getElementById('btn-reset');
         if (btnReset) btnReset.onclick = () => this.resetDefaults();
 
+        const btnSettings = document.getElementById('btn-settings');
+        if (btnSettings) btnSettings.onclick = () => this.toggleSettings(true);
+
         this.lastRefresh = 0;
         this.waitingForKey = null; // Variable para saber qué tecla estamos esperando cambiar
     }

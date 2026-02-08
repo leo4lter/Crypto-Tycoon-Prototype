@@ -105,9 +105,18 @@ export function drawGhost(ctx, mode, x, y, isValid, rotation) {
 
 export function drawMiner(ctx, pos, forcedElevation = 0, grayscale = false) {
     const p = gridToScreen(pos.x, pos.y);
-    const slot = pos.slotIndex || 0;
-    const baseOffset = forcedElevation > 0 ? 10 : 0;
-    const elevation = baseOffset + (slot * 14);
+
+    if (pos.offsetX) p.x += pos.offsetX;
+    if (pos.offsetY) p.y += pos.offsetY;
+
+    let elevation = 0;
+    if (typeof pos.z === 'number') {
+        elevation = pos.z;
+    } else {
+        const slot = pos.slotIndex || 0;
+        const baseOffset = forcedElevation > 0 ? 10 : 0;
+        elevation = baseOffset + (slot * 14);
+    }
 
     const drawY = p.y - elevation;
 
@@ -125,6 +134,11 @@ export function drawMiner(ctx, pos, forcedElevation = 0, grayscale = false) {
     if (pos.on && !grayscale) {
         ctx.fillStyle = '#fff';
         ctx.fillRect(p.x - 2, drawY + 8, 4, 4);
+
+        const time = performance.now();
+        const ledColor = (Math.floor(time / 200) % 2 === 0) ? '#00ff00' : '#00aa00';
+        ctx.fillStyle = ledColor;
+        ctx.fillRect(p.x - 5, drawY + 8, 2, 2);
     }
 
     if (!grayscale) {
