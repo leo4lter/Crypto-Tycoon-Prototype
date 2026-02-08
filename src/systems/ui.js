@@ -19,6 +19,19 @@ export class UISystem {
         this.elInspector = document.getElementById('inspector-panel');
         this.elInspectorContent = document.getElementById('inspector-content');
 
+        // Tooltip
+        this.elTooltip = document.getElementById('tooltip');
+        this.hoverTimer = 0;
+        this.lastHoverKey = '';
+
+        // Mouse Tracking
+        this.mouseX = 0;
+        this.mouseY = 0;
+        window.addEventListener('mousemove', (e) => {
+            this.mouseX = e.clientX;
+            this.mouseY = e.clientY;
+        });
+
         // Elementos del Menú de Configuración
         this.modal = document.getElementById('settings-modal');
         this.keysList = document.getElementById('keys-list');
@@ -80,6 +93,79 @@ export class UISystem {
 
         // 4. Inspector de Estructuras
         this.updateInspector();
+
+        // 5. Tooltip Inteligente
+        this.updateTooltip(dt);
+    }
+
+    updateTooltip(dt) {
+        if (!this.elTooltip) return;
+
+        // Verificar si el mouse está quieto sobre una celda válida
+        const hover = Store.hover;
+        const currentKey = `${hover.x},${hover.y}`;
+
+        if (hover.x !== -1 && hover.valid !== undefined) {
+             // Si cambia de celda, resetear timer
+             if (currentKey !== this.lastHoverKey) {
+                 this.hoverTimer = 0;
+                 this.lastHoverKey = currentKey;
+                 this.hideTooltip();
+             } else {
+                 this.hoverTimer += dt;
+             }
+        } else {
+            this.hoverTimer = 0;
+            this.hideTooltip();
+            return;
+        }
+
+        // Mostrar Tooltip si timer > 500ms
+        if (this.hoverTimer > 500) {
+            this.showTooltip(hover.x, hover.y);
+        }
+    }
+
+    showTooltip(gx, gy) {
+        if (!this.elTooltip) return;
+
+        const idx = gx + gy * Store.GRID;
+        const temp = Store.heat[idx] || 0;
+        let html = '';
+
+        // Temperatura
+        let color = '#fff';
+        if (temp > 60) color = '#f59e0b'; // Naranja
+        if (temp > 80) color = '#ef4444'; // Rojo
+
+        html += `<div>Temp: <span style="color:${color}; font-weight:bold;">${temp.toFixed(1)}°C</span></div>`;
+
+        // Entidad (si hay)
+        const entities = this.game.ecs.getEntitiesWith('position').filter(id => {
+            const p = this.game.ecs.components.position.get(id);
+            return p.x === gx && p.y === gy;
+        });
+
+        if (entities.length > 0) {
+            // Prioridad: Minero > Rack > AC > Otros
+            let name = '';
+            if (entities.some(id => this.game.ecs.components.miner?.has(id))) name = 'Minero';
+            else if (entities.some(id => this.game.ecs.components.rack?.has(id))) name = 'Rack';
+            else if (entities.some(id => this.game.ecs.components.ac_unit?.has(id))) name = 'AC Suelo';
+            else if (entities.some(id => this.game.ecs.components.wall_ac?.has(id))) name = 'AC Pared';
+            else if (entities.some(id => this.game.ecs.components.cable?.has(id))) name = 'Cable';
+
+            if (name) html += `<div style="color:#aaa; font-size:10px;">${name}</div>`;
+        }
+
+        this.elTooltip.innerHTML = html;
+        this.elTooltip.style.left = `${this.mouseX + 15}px`;
+        this.elTooltip.style.top = `${this.mouseY + 15}px`;
+        this.elTooltip.classList.remove('hidden');
+    }
+
+    hideTooltip() {
+        if (this.elTooltip) this.elTooltip.classList.add('hidden');
     }
 
     updateInspector() {
