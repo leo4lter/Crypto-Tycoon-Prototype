@@ -2,6 +2,11 @@ import { CONFIG } from './config.js';
 
 export const Store = {
     GRID: CONFIG.GRID_SIZE,
+    hover: {
+        x: -1,
+        y: -1,
+        valid: false
+    },
 
     electricity: {
         maxWatts: 2000,
@@ -17,6 +22,8 @@ export const Store = {
     },
     selectedHardwareIndex: 0,
     buildRotation: 0, 
+    isPaused: false,
+    hover: { x: -1, y: -1, valid: false },
     heat: new Float32Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE),
     heatBuffer: new Float32Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE),
     noise: new Float32Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE),

@@ -1,11 +1,6 @@
 import { Store } from '../core/store.js';
 import { CONFIG } from '../core/config.js';
-import { Utils } from '../core/utils.js'; 
-
-const TILE_W = 64;
-const TILE_H = 32;
-const ORIGIN_X = 400;
-const ORIGIN_Y = 200;
+import { Utils } from '../core/utils.js';
 
 export function gridToScreen(x, y) {
     return {
@@ -43,9 +38,9 @@ export function drawNoiseMap(ctx) { drawValueMap(ctx, Store.noise, v => v < 20 ?
 export function drawDirtMap(ctx) { drawValueMap(ctx, Store.dirt, v => v < 1 ? '#223322' : v < 3 ? '#556622' : v < 6 ? '#997733' : '#553311'); }
 
 function drawValueMap(ctx, map, colorFn) {
-    for (let y = 0; y < Store.GRID; y++) {
-        for (let x = 0; x < Store.GRID; x++) {
-            const value = map[x + y * Store.GRID];
+    for (let y = 0; y < CONFIG.GRID_SIZE; y++) {
+        for (let x = 0; x < CONFIG.GRID_SIZE; x++) {
+            const value = map[x + y * CONFIG.GRID_SIZE];
             drawDiamond(ctx, x, y, colorFn(value));
         }
     }
@@ -55,9 +50,9 @@ function drawDiamond(ctx, x, y, color, strokeColor) {
     const p = gridToScreen(x, y);
     ctx.beginPath();
     ctx.moveTo(p.x, p.y);
-    ctx.lineTo(p.x + TILE_W / 2, p.y + TILE_H / 2);
-    ctx.lineTo(p.x, p.y + TILE_H);
-    ctx.lineTo(p.x - TILE_W / 2, p.y + TILE_H / 2);
+    ctx.lineTo(p.x + CONFIG.TILE_W / 2, p.y + CONFIG.TILE_H / 2);
+    ctx.lineTo(p.x, p.y + CONFIG.TILE_H);
+    ctx.lineTo(p.x - CONFIG.TILE_W / 2, p.y + CONFIG.TILE_H / 2);
     ctx.closePath();
     ctx.fillStyle = color;
     ctx.fill();
@@ -67,13 +62,49 @@ function drawDiamond(ctx, x, y, color, strokeColor) {
     }
 }
 
-// === MINERO (Con soporte para altura por Slot) ===
+export function drawGhost(ctx, mode, x, y, isValid, rotation) {
+    const p = gridToScreen(x, y);
+    ctx.save();
+    ctx.globalAlpha = 0.6;
+    const tint = isValid ? '#00ff00' : '#ff0000';
+
+    if (mode === 'miner') {
+        const drawY = p.y;
+        ctx.fillStyle = isValid ? '#00ff88' : '#ff0000';
+        ctx.fillRect(p.x - 8, drawY + 6, 16, 12);
+        
+        ctx.strokeStyle = '#ffff00';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        const cx = p.x; const cy = drawY + 6;
+        if (rotation === 0) { ctx.moveTo(cx, cy); ctx.lineTo(cx + 6, cy + 3); } 
+        else if (rotation === 1) { ctx.moveTo(cx, cy); ctx.lineTo(cx - 6, cy + 3); } 
+        else if (rotation === 2) { ctx.moveTo(cx, cy); ctx.lineTo(cx - 6, cy - 3); } 
+        else if (rotation === 3) { ctx.moveTo(cx, cy); ctx.lineTo(cx + 6, cy - 3); }
+        ctx.stroke();
+
+    } else if (mode === 'rack') {
+        drawRack(ctx, { x, y }, true);
+        ctx.fillStyle = tint;
+        ctx.globalCompositeOperation = 'source-atop';
+        ctx.fillRect(p.x - 20, p.y - 95, 40, 100);
+    } else {
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(p.x + CONFIG.TILE_W / 2, p.y + CONFIG.TILE_H / 2);
+        ctx.lineTo(p.x, p.y + CONFIG.TILE_H);
+        ctx.lineTo(p.x - CONFIG.TILE_W / 2, p.y + CONFIG.TILE_H / 2);
+        ctx.closePath();
+        ctx.fillStyle = tint;
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.stroke();
+    }
+    ctx.restore();
+}
+
 export function drawMiner(ctx, pos, forcedElevation = 0, grayscale = false) {
     const p = gridToScreen(pos.x, pos.y);
-    
-    // Cálculo de altura:
-    // Si forcedElevation es 1 (hay rack), elevamos la base un poco.
-    // Sumamos 14px por cada slotIndex.
     const slot = pos.slotIndex || 0;
     const baseOffset = forcedElevation > 0 ? 10 : 0;
     const elevation = baseOffset + (slot * 14);
@@ -88,17 +119,14 @@ export function drawMiner(ctx, pos, forcedElevation = 0, grayscale = false) {
         if (pos.on) bodyColor = '#666';
     }
 
-    // Cuerpo
     ctx.fillStyle = bodyColor;
     ctx.fillRect(p.x - 8, drawY + 6, 16, 12);
     
-    // Led
     if (pos.on && !grayscale) {
         ctx.fillStyle = '#fff';
         ctx.fillRect(p.x - 2, drawY + 8, 4, 4);
     }
 
-    // Flecha de Rotación
     if (!grayscale) {
         ctx.strokeStyle = '#ffff00';
         ctx.lineWidth = 2;
@@ -122,21 +150,17 @@ export function drawRack(ctx, pos, grayscale = false) {
     const colorBase = grayscale ? '#222' : '#2d3748';
     const colorPilar = grayscale ? '#333' : '#4a5568';
 
-    // Base
     ctx.fillStyle = colorBase;
     ctx.fillRect(p.x - 20, baseY - 5, 40, 5); 
 
-    // Pilares (Altura suficiente para 6 mineros ~ 95px)
     ctx.fillStyle = colorPilar;
     ctx.fillRect(p.x - 20, baseY - 95, 4, 95); 
     ctx.fillRect(p.x + 16, baseY - 95, 4, 95); 
 
-    // Estantes decorativos
     ctx.fillStyle = colorBase;
     ctx.fillRect(p.x - 20, baseY - 35, 40, 2); 
     ctx.fillRect(p.x - 20, baseY - 65, 40, 2); 
     
-    // Tope
     ctx.fillRect(p.x - 20, baseY - 95, 40, 4); 
 }
 
@@ -196,7 +220,6 @@ export function drawConnectedCable(ctx, pos, cablesSet, socketsSet) {
     ctx.fillRect(cx - 2, cy - 2, 4, 4);
     ctx.beginPath();
 
-    // Verificamos vecinos usando Utils (más limpio)
     const neighbors = [
         { dx: 0, dy: -1 }, { dx: 0, dy: 1 }, { dx: 1, dy: 0 }, { dx: -1, dy: 0 }
     ];

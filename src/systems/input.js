@@ -1,7 +1,7 @@
 import { Store } from '../core/store.js';
 import { CONFIG } from '../core/config.js';
+import { Utils } from '../core/utils.js';
 import { screenToGrid } from '../renderer/isometric.js';
-import { t } from '../core/i18n.js';
 import { HARDWARE_DB } from '../core/hardware.js';
 
 export class InputSystem {
@@ -11,28 +11,26 @@ export class InputSystem {
         this.ecs = game.ecs;
 
         window.addEventListener('contextmenu', (e) => e.preventDefault());
+        window.addEventListener('mousemove', (e) => this.handleMouseMove(e));
         window.addEventListener('mousedown', (e) => this.handleMouse(e));
         window.addEventListener('keydown', (e) => this.handleKey(e));
     }
 
     handleKey(e) {
-        const k = e.key; // La tecla presionada
-        const C = CONFIG.CONTROLS; // Atajo para escribir menos
+        const k = e.key;
+        const C = CONFIG.CONTROLS;
 
-        // --- VISTAS (F1 - F5) ---
         if (k === C.VIEW_NORMAL) { Store.viewMode = 'normal'; Store.layerView = 'normal'; }
         if (k === C.VIEW_THERMAL) { Store.viewMode = 'temperature'; Store.layerView = 'normal'; }
         if (k === C.VIEW_ELECTRIC) { Store.viewMode = 'electricity'; Store.layerView = 'normal'; }
         if (k === C.VIEW_NOISE) { Store.viewMode = 'noise'; Store.layerView = 'normal'; }
         if (k === C.VIEW_DIRT) { Store.viewMode = 'dirt'; Store.layerView = 'normal'; }
 
-        // --- CAPAS (1 - 4) ---
         if (k === C.LAYER_NORMAL) { Store.layerView = 'normal'; Store.viewMode = 'normal'; }
         if (k === C.LAYER_SUBSOIL) { Store.layerView = 'subsoil'; Store.viewMode = 'normal'; }
         if (k === C.LAYER_GROUND) { Store.layerView = 'ground'; Store.viewMode = 'normal'; }
         if (k === C.LAYER_STRUCTURE) { Store.layerView = 'structure'; Store.viewMode = 'normal'; }
 
-        // --- HERRAMIENTAS ---
         if (k === C.TOOL_MINER) Store.buildMode = 'miner';
         if (k === C.TOOL_RACK) Store.buildMode = 'rack';
         if (k === C.TOOL_CABLE) Store.buildMode = 'cable';
@@ -40,147 +38,143 @@ export class InputSystem {
         if (k === C.TOOL_CLEANER) Store.buildMode = 'cleaner';
         if (k === C.TOOL_CARPET) Store.buildMode = 'carpet';
 
-        // --- ACCIONES ---
         if (k === C.CYCLE_HW) {
             e.preventDefault();
-            Store.selectedHardwareIndex++;
-            if (Store.selectedHardwareIndex >= HARDWARE_DB.length) {
-                Store.selectedHardwareIndex = 0;
-            }
+            Store.selectedHardwareIndex = (Store.selectedHardwareIndex + 1) % HARDWARE_DB.length;
         }
 
-        // ROTACIÓN (Ahora sin conflictos)
         if (k.toLowerCase() === C.ROTATE.toLowerCase()) {
             Store.buildRotation = (Store.buildRotation + 1) % 4;
-            console.log("Rotación:", Store.buildRotation);
+            this.updateHoverValidity();
         }
     }
 
-    handleMouse(e) {
+    handleMouseMove(e) {
         const rect = this.ctx.canvas.getBoundingClientRect();
         const mx = e.clientX - rect.left;
         const my = e.clientY - rect.top;
-
         const { gx, gy } = screenToGrid(mx, my);
 
-        if (gx < 0 || gy < 0 || gx >= Store.GRID || gy >= Store.GRID) return;
+        if (Utils.isValid(gx, gy)) {
+            Store.hover.x = gx;
+            Store.hover.y = gy;
+            this.updateHoverValidity();
+        } else {
+            Store.hover.x = -1;
+            Store.hover.y = -1;
+            Store.hover.valid = false;
+        }
+    }
 
-        const entitiesHere = this.ecs.getEntitiesWith('position').filter(id => {
+    updateHoverValidity() {
+        const status = this.getBuildStatus(Store.hover.x, Store.hover.y);
+        Store.hover.valid = status.canBuild;
+    }
+
+    handleMouse(e) {
+        if (Store.hover.x === -1) return;
+
+        if (e.button === 2) {
+            this.handleDelete(Store.hover.x, Store.hover.y);
+            return;
+        }
+
+        const status = this.getBuildStatus(Store.hover.x, Store.hover.y);
+        
+        if (status.canBuild) {
+            this.executeBuild(Store.hover.x, Store.hover.y, status);
+        }
+    }
+
+    getBuildStatus(gx, gy) {
+        const mode = Store.buildMode;
+        
+        const entities = this.ecs.getEntitiesWith('position').filter(id => {
             const p = this.ecs.components.position.get(id);
             return p.x === gx && p.y === gy;
         });
 
-        const hasSubsoil = entitiesHere.some(id => this.ecs.components.cable?.has(id));
-        const hasGround = entitiesHere.some(id => this.ecs.components.carpet?.has(id));
-        const hasRack = entitiesHere.some(id => this.ecs.components.rack?.has(id));
-        
-        // Contamos mineros existentes para calcular el slot
-        const minersHereCount = entitiesHere.filter(id => this.ecs.components.miner?.has(id)).length;
-        
-        const hasObstacle = entitiesHere.some(id => 
-            this.ecs.components.panel?.has(id) || 
-            this.ecs.components.cleaner?.has(id)
+        const hasSubsoil = entities.some(id => this.ecs.components.cable?.has(id));
+        const hasGround = entities.some(id => this.ecs.components.carpet?.has(id));
+        const hasRack = entities.some(id => this.ecs.components.rack?.has(id));
+        const minersCount = entities.filter(id => this.ecs.components.miner?.has(id)).length;
+        const hasObstacle = entities.some(id => 
+            this.ecs.components.panel?.has(id) || this.ecs.components.cleaner?.has(id)
         );
 
-        // Click Derecho: Borrar (Prioridad LIFO: Último minero -> Rack -> Otros)
-        if (e.button === 2) {
-            // 1. Intentar borrar el minero más alto
-            const miners = entitiesHere.filter(id => this.ecs.components.miner?.has(id));
-            if (miners.length > 0) {
-                // Ordenar por slotIndex descendente para borrar el de arriba
-                miners.sort((a, b) => {
-                    const mA = this.ecs.components.miner.get(a);
-                    const mB = this.ecs.components.miner.get(b);
-                    return (mB.slotIndex || 0) - (mA.slotIndex || 0);
-                });
-                this.ecs.removeEntity(miners[0]);
-                return;
-            }
+        if (mode === 'cable') {
+            return { canBuild: !hasSubsoil };
+        }
+        if (mode === 'rack') {
+            if (minersCount > 0 || hasRack || hasObstacle) return { canBuild: false };
+            return { canBuild: true };
+        }
+        if (mode === 'miner') {
+            if (hasObstacle) return { canBuild: false };
             
-            // 2. Si no hay mineros, borrar rack u otros
-            const toDelete = entitiesHere.find(id => !this.ecs.components.socket?.has(id));
-            if (toDelete) this.ecs.removeEntity(toDelete);
-            return;
+            const stats = HARDWARE_DB[Store.selectedHardwareIndex];
+            if (Store.economy.usd < stats.price) return { canBuild: false };
+
+            let slot = 0;
+            if (hasRack) {
+                if (minersCount >= 6) return { canBuild: false };
+                slot = minersCount;
+            } else {
+                if (minersCount >= 1) return { canBuild: false };
+                slot = 0;
+            }
+            return { canBuild: true, slot: slot, price: stats.price };
+        }
+        if (mode === 'carpet') return { canBuild: !hasGround };
+        if (mode === 'cleaner' || mode === 'panel') {
+            if (minersCount > 0 || hasRack || hasObstacle) return { canBuild: false };
+            return { canBuild: true };
         }
 
-        this.tryBuild(gx, gy, hasSubsoil, hasGround, minersHereCount, hasRack, hasObstacle);
+        return { canBuild: false };
     }
 
-    tryBuild(gx, gy, hasSubsoil, hasGround, minersHereCount, hasRack, hasObstacle) {
+    executeBuild(gx, gy, status) {
         const mode = Store.buildMode;
+        const id = this.ecs.createEntity();
+        this.ecs.addComponent(id, 'position', { x: gx, y: gy });
 
-        if (mode === 'cable' && !hasSubsoil) {
-            const id = this.ecs.createEntity();
-            this.ecs.addComponent(id, 'position', { x: gx, y: gy });
-            this.ecs.addComponent(id, 'cable', {});
-        }
-        else if (mode === 'rack') {
-            // REGLA: No construir Rack sobre mineros existentes ni sobre otro rack/obstáculo
-            if (minersHereCount > 0 || hasRack || hasObstacle) {
-                console.log("Espacio ocupado. Limpia antes de poner un Rack.");
-                return; 
-            }
-            const id = this.ecs.createEntity();
-            this.ecs.addComponent(id, 'position', { x: gx, y: gy });
-            this.ecs.addComponent(id, 'rack', { slots: 6 });
-        }
+        if (mode === 'cable') this.ecs.addComponent(id, 'cable', {});
+        
+        else if (mode === 'rack') this.ecs.addComponent(id, 'rack', { slots: 6 });
+        
         else if (mode === 'miner') {
-            if (hasObstacle) return;
-
-            let currentSlot = 0;
-
-            if (hasRack) {
-                // Si hay rack, permitimos hasta 6 (Slots 0-5)
-                if (minersHereCount >= 6) {
-                    console.log("Rack lleno.");
-                    return;
-                }
-                currentSlot = minersHereCount;
-            } else {
-                // Si NO hay rack, solo permitimos 1 en el suelo
-                if (minersHereCount >= 1) {
-                    console.log("Necesitas un Rack para apilar.");
-                    return;
-                }
-                currentSlot = 0;
-            }
-
             const stats = HARDWARE_DB[Store.selectedHardwareIndex];
-
-            if (Store.economy.usd < stats.price) {
-                console.log("Fondos insuficientes");
-                return;
-            }
-            Store.economy.usd -= stats.price;
-
-            const id = this.ecs.createEntity();
-            this.ecs.addComponent(id, 'position', { x: gx, y: gy });
-            this.ecs.addComponent(id, 'miner', { 
-                watts: stats.watts, 
+            Store.economy.usd -= status.price;
+            this.ecs.addComponent(id, 'miner', {
+                watts: stats.watts,
                 heatOutput: stats.heat,
                 hashrate: stats.hashrate,
                 on: false,
                 modelColor: stats.color,
                 rotation: Store.buildRotation,
-                slotIndex: currentSlot // Guardamos la altura
+                slotIndex: status.slot
             });
         }
-        else if (mode === 'carpet' && !hasGround) {
-            const id = this.ecs.createEntity();
-            this.ecs.addComponent(id, 'position', { x: gx, y: gy });
-            this.ecs.addComponent(id, 'carpet', { noiseReduction: 0.6 });
+        
+        else if (mode === 'carpet') this.ecs.addComponent(id, 'carpet', { noiseReduction: 0.6 });
+        else if (mode === 'cleaner') this.ecs.addComponent(id, 'cleaner', { power: 0.05 });
+        else if (mode === 'panel') this.ecs.addComponent(id, 'panel', { absorption: 0.85 });
+    }
+
+    handleDelete(gx, gy) {
+        const entities = this.ecs.getEntitiesWith('position').filter(id => {
+            const p = this.ecs.components.position.get(id);
+            return p.x === gx && p.y === gy;
+        });
+
+        const miners = entities.filter(id => this.ecs.components.miner?.has(id));
+        if (miners.length > 0) {
+            miners.sort((a, b) => (this.ecs.components.miner.get(b).slotIndex || 0) - (this.ecs.components.miner.get(a).slotIndex || 0));
+            this.ecs.removeEntity(miners[0]);
+            return;
         }
-        else if (mode === 'cleaner') {
-            if (minersHereCount > 0 || hasRack || hasObstacle) return;
-            const id = this.ecs.createEntity();
-            this.ecs.addComponent(id, 'position', { x: gx, y: gy });
-            this.ecs.addComponent(id, 'cleaner', { power: 0.05 });
-        }
-        else if (mode === 'panel') {
-            if (minersHereCount > 0 || hasRack || hasObstacle) return;
-            const id = this.ecs.createEntity();
-            this.ecs.addComponent(id, 'position', { x: gx, y: gy });
-            this.ecs.addComponent(id, 'panel', { absorption: 0.85 });
-        }
+        const toDelete = entities.find(id => !this.ecs.components.socket?.has(id));
+        if (toDelete) this.ecs.removeEntity(toDelete);
     }
 }

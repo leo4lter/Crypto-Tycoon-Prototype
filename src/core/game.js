@@ -8,7 +8,7 @@ import {
     drawGrid, drawMiner, drawSocket, drawCable, drawHeatMap, 
     drawNoiseMap, drawDirtMap, drawCarpet, drawCleaner, 
     drawPanel, drawConnectedCable, screenToGrid, drawRack,
-    drawSubsoilCable
+    drawSubsoilCable, drawGhost
 } from '../renderer/isometric.js';
 
 export class Game {
@@ -63,7 +63,6 @@ export class Game {
         else if (Store.viewMode === 'dirt') drawDirtMap(this.ctx);
         else drawGrid(this.ctx, isElecMode); 
 
-        // Sets optimizados para lookups rápidos
         const cablesSet = new Set();
         const socketsSet = new Set();
         const racksSet = new Set();
@@ -80,7 +79,6 @@ export class Game {
         const renderList = [];
         const useGrayscale = isAnalysisMode || isElecMode;
 
-        // A. ALFOMBRAS
         if (Store.layerView !== 'subsoil') {
             for (const id of this.ecs.getEntitiesWith('position', 'carpet')) {
                 const pos = this.ecs.components.position.get(id);
@@ -91,7 +89,6 @@ export class Game {
             }
         }
 
-        // B. CABLES Y ENCHUFES
         const showCables = (Store.layerView === 'subsoil' || isElecMode);
         if (showCables) {
              for (const id of this.ecs.getEntitiesWith('position', 'cable')) {
@@ -110,7 +107,6 @@ export class Game {
              });
         }
 
-        // C. ESTRUCTURAS
         if (Store.layerView !== 'subsoil') {
             const entities = [
                 ...this.ecs.getEntitiesWith('position', 'miner').map(id => ({ id, type: 'miner' })),
@@ -121,7 +117,6 @@ export class Game {
             
             for (const item of entities) {
                 const pos = this.ecs.components.position.get(item.id);
-                // La profundidad es constante para todos los objetos en la celda
                 let depth = (pos.x + pos.y) * 10 + 5; 
 
                 renderList.push({
@@ -130,9 +125,6 @@ export class Game {
                         if (item.type === 'miner') {
                              const data = this.ecs.components.miner.get(item.id);
                              const isInRack = racksSet.has(`${pos.x},${pos.y}`);
-                             
-                             // Pasamos isInRack como "1" si es true para ajustar la base del dibujo.
-                             // El drawMiner usará data.slotIndex para la altura final.
                              drawMiner(this.ctx, { ...pos, ...data }, isInRack ? 1 : 0, useGrayscale);
 
                         } else if (item.type === 'panel') {
@@ -145,6 +137,25 @@ export class Game {
                     }
                 });
             }
+        }
+
+        if (Store.hover && Store.hover.x !== -1 && Store.buildMode) {
+            const h = Store.hover;
+            const depth = (h.x + h.y) * 10 + 9;
+
+            renderList.push({
+                depth: depth,
+                draw: () => {
+                    drawGhost(
+                        this.ctx, 
+                        Store.buildMode, 
+                        h.x, 
+                        h.y, 
+                        h.valid, 
+                        Store.buildRotation
+                    );
+                }
+            });
         }
 
         renderList.sort((a, b) => a.depth - b.depth);
