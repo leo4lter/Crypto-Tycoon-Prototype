@@ -1,4 +1,5 @@
 import { Store } from '../core/store.js';
+import { CONFIG } from '../core/config.js';
 import { screenToGrid } from '../renderer/isometric.js';
 import { t } from '../core/i18n.js';
 import { HARDWARE_DB } from '../core/hardware.js';
@@ -15,25 +16,32 @@ export class InputSystem {
     }
 
     handleKey(e) {
-        if (e.key === '1') { Store.layerView = 'subsoil'; Store.viewMode = 'normal'; }
-        if (e.key === '2') { Store.layerView = 'ground'; Store.viewMode = 'normal'; }
-        if (e.key === '3') { Store.layerView = 'structure'; Store.viewMode = 'normal'; }
-        if (e.key === '0') { Store.layerView = 'normal'; Store.viewMode = 'normal'; }
+        const k = e.key; // La tecla presionada
+        const C = CONFIG.CONTROLS; // Atajo para escribir menos
 
-        if (e.key === 't') { Store.viewMode = 'temperature'; Store.layerView = 'normal'; }
-        if (e.key === 'r') { Store.viewMode = 'noise'; Store.layerView = 'normal'; }
-        if (e.key === 'd') { Store.viewMode = 'dirt'; Store.layerView = 'normal'; }
-        if (e.key === 'n') { Store.viewMode = 'normal'; Store.layerView = 'normal'; }
-        if (e.key === 'e') { Store.viewMode = 'electricity'; Store.layerView = 'normal'; }
+        // --- VISTAS (F1 - F5) ---
+        if (k === C.VIEW_NORMAL) { Store.viewMode = 'normal'; Store.layerView = 'normal'; }
+        if (k === C.VIEW_THERMAL) { Store.viewMode = 'temperature'; Store.layerView = 'normal'; }
+        if (k === C.VIEW_ELECTRIC) { Store.viewMode = 'electricity'; Store.layerView = 'normal'; }
+        if (k === C.VIEW_NOISE) { Store.viewMode = 'noise'; Store.layerView = 'normal'; }
+        if (k === C.VIEW_DIRT) { Store.viewMode = 'dirt'; Store.layerView = 'normal'; }
 
-        if (e.key === 'm') { Store.buildMode = 'miner'; }
-        if (e.key === 'c') { Store.buildMode = 'carpet'; }
-        if (e.key === 'l') { Store.buildMode = 'cleaner'; }
-        if (e.key === 'p') { Store.buildMode = 'panel'; }
-        if (e.key === 'k') { Store.buildMode = 'rack'; }
-        if (e.key === 'b') { Store.buildMode = 'cable'; }
+        // --- CAPAS (1 - 4) ---
+        if (k === C.LAYER_NORMAL) { Store.layerView = 'normal'; Store.viewMode = 'normal'; }
+        if (k === C.LAYER_SUBSOIL) { Store.layerView = 'subsoil'; Store.viewMode = 'normal'; }
+        if (k === C.LAYER_GROUND) { Store.layerView = 'ground'; Store.viewMode = 'normal'; }
+        if (k === C.LAYER_STRUCTURE) { Store.layerView = 'structure'; Store.viewMode = 'normal'; }
 
-        if (e.key === 'Tab') {
+        // --- HERRAMIENTAS ---
+        if (k === C.TOOL_MINER) Store.buildMode = 'miner';
+        if (k === C.TOOL_RACK) Store.buildMode = 'rack';
+        if (k === C.TOOL_CABLE) Store.buildMode = 'cable';
+        if (k === C.TOOL_PANEL) Store.buildMode = 'panel';
+        if (k === C.TOOL_CLEANER) Store.buildMode = 'cleaner';
+        if (k === C.TOOL_CARPET) Store.buildMode = 'carpet';
+
+        // --- ACCIONES ---
+        if (k === C.CYCLE_HW) {
             e.preventDefault();
             Store.selectedHardwareIndex++;
             if (Store.selectedHardwareIndex >= HARDWARE_DB.length) {
@@ -41,8 +49,10 @@ export class InputSystem {
             }
         }
 
-        if (e.key === 'r' || e.key === 'R') {
+        // ROTACIÓN (Ahora sin conflictos)
+        if (k.toLowerCase() === C.ROTATE.toLowerCase()) {
             Store.buildRotation = (Store.buildRotation + 1) % 4;
+            console.log("Rotación:", Store.buildRotation);
         }
     }
 

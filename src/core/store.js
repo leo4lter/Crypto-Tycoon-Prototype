@@ -1,5 +1,7 @@
+import { CONFIG } from './config.js';
+
 export const Store = {
-    GRID: 12,
+    GRID: CONFIG.GRID_SIZE,
 
     electricity: {
         maxWatts: 2000,
@@ -13,15 +15,12 @@ export const Store = {
         btcPrice: 50000,
         difficulty: 1000
     },
-
-    // Selección
     selectedHardwareIndex: 0,
-    buildRotation: 0, // 0: SE, 1: SW, 2: NW, 3: NE (Sentido horario)
-
-    heat: new Float32Array(12 * 12),
-    heatBuffer: new Float32Array(12 * 12),
-    noise: new Float32Array(12 * 12),
-    dirt: new Float32Array(12 * 12),
+    buildRotation: 0, 
+    heat: new Float32Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE),
+    heatBuffer: new Float32Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE),
+    noise: new Float32Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE),
+    dirt: new Float32Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE),
 
     viewMode: 'normal',
     layerView: 'normal',

@@ -1,4 +1,5 @@
 import { Store } from '../core/store.js';
+import { CONFIG } from '../core/config.js';
 import { t } from '../core/i18n.js';
 import { HARDWARE_DB } from '../core/hardware.js'
 

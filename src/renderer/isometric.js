@@ -1,4 +1,6 @@
 import { Store } from '../core/store.js';
+import { CONFIG } from '../core/config.js';
+import { Utils } from '../core/utils.js'; 
 
 const TILE_W = 64;
 const TILE_H = 32;
@@ -7,22 +9,22 @@ const ORIGIN_Y = 200;
 
 export function gridToScreen(x, y) {
     return {
-        x: (x - y) * (TILE_W / 2) + ORIGIN_X,
-        y: (x + y) * (TILE_H / 2) + ORIGIN_Y,
+        x: (x - y) * (CONFIG.TILE_W / 2) + CONFIG.ORIGIN_X,
+        y: (x + y) * (CONFIG.TILE_H / 2) + CONFIG.ORIGIN_Y,
     };
 }
 
 export function screenToGrid(x, y) {
-    let dx = x - ORIGIN_X;
-    let dy = y - ORIGIN_Y;
-    const gx = Math.floor((dy / (TILE_H / 2) + dx / (TILE_W / 2)) / 2);
-    const gy = Math.floor((dy / (TILE_H / 2) - dx / (TILE_W / 2)) / 2);
+    let dx = x - CONFIG.ORIGIN_X;
+    let dy = y - CONFIG.ORIGIN_Y;
+    const gx = Math.floor((dy / (CONFIG.TILE_H / 2) + dx / (CONFIG.TILE_W / 2)) / 2);
+    const gy = Math.floor((dy / (CONFIG.TILE_H / 2) - dx / (CONFIG.TILE_W / 2)) / 2);
     return { gx, gy };
 }
 
 export function drawGrid(ctx, dim = false) {
-    for (let y = 0; y < Store.GRID; y++) {
-        for (let x = 0; x < Store.GRID; x++) {
+    for (let y = 0; y < CONFIG.GRID_SIZE; y++) {
+        for (let x = 0; x < CONFIG.GRID_SIZE; x++) {
             drawDiamond(ctx, x, y, dim ? '#111' : '#1e2a3a', dim ? '#222' : '#2a3a4a');
         }
     }
@@ -190,26 +192,25 @@ export function drawConnectedCable(ctx, pos, cablesSet, socketsSet) {
     ctx.strokeStyle = '#00ccff';
     ctx.lineWidth = 3;
     ctx.lineCap = 'round';
-
     ctx.fillStyle = '#00ccff';
     ctx.fillRect(cx - 2, cy - 2, 4, 4);
-
     ctx.beginPath();
-    if (cablesSet.has(`${pos.x},${pos.y-1}`) || socketsSet.has(`${pos.x},${pos.y-1}`)) {
-        const pN = gridToScreen(pos.x, pos.y - 1);
-        ctx.moveTo(cx, cy); ctx.lineTo(pN.x, pN.y + 16);
-    }
-    if (cablesSet.has(`${pos.x},${pos.y+1}`) || socketsSet.has(`${pos.x},${pos.y+1}`)) {
-        const pS = gridToScreen(pos.x, pos.y + 1);
-        ctx.moveTo(cx, cy); ctx.lineTo(pS.x, pS.y + 16);
-    }
-    if (cablesSet.has(`${pos.x+1},${pos.y}`) || socketsSet.has(`${pos.x+1},${pos.y}`)) {
-        const pE = gridToScreen(pos.x + 1, pos.y);
-        ctx.moveTo(cx, cy); ctx.lineTo(pE.x, pE.y + 16);
-    }
-    if (cablesSet.has(`${pos.x-1},${pos.y}`) || socketsSet.has(`${pos.x-1},${pos.y}`)) {
-        const pW = gridToScreen(pos.x - 1, pos.y);
-        ctx.moveTo(cx, cy); ctx.lineTo(pW.x, pW.y + 16);
+
+    // Verificamos vecinos usando Utils (más limpio)
+    const neighbors = [
+        { dx: 0, dy: -1 }, { dx: 0, dy: 1 }, { dx: 1, dy: 0 }, { dx: -1, dy: 0 }
+    ];
+
+    for (const n of neighbors) {
+        const nx = pos.x + n.dx;
+        const ny = pos.y + n.dy;
+        const key = Utils.key(nx, ny);
+
+        if (cablesSet.has(key) || socketsSet.has(key)) {
+            const pn = gridToScreen(nx, ny);
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(pn.x, pn.y + 16);
+        }
     }
     ctx.stroke();
     ctx.lineWidth = 1;
