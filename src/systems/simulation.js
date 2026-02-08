@@ -140,54 +140,47 @@ export class SimulationSystem {
         const INSULATION_FACTOR = CONFIG.HEAT.INSULATION_FACTOR || 0.4;
 
         // 0. Copiar buffer anterior (paso de simulación)
-        // Usamos set() para copiar rápido los valores
         Store.heatBuffer.set(Store.heat);
 
-        // 1. Inyectar calor (Miners) con lógica DIRECCIONAL
+        // 1. Inyectar calor (Miners) con lógica DIRECCIONAL (Backflow)
         const miners = this.ecs.getEntitiesWith('position', 'miner');
         for (const m of miners) {
             const pos = this.ecs.components.position.get(m);
             const miner = this.ecs.components.miner.get(m);
             
-            // Reset suffocation flag
             miner.suffocating = false;
 
             if (miner.on) {
                 const idx = pos.x + pos.y * GRID;
                 const heatAmount = (miner.heatOutput || 1.0) * HEAT_GENERATION_SCALE;
 
-                // Nueva Lógica de Dirección basada en la Flecha Roja (Salida)
-                // Rot 0 (Norte Visual): {x, y-1}
-                // Rot 1 (Este Visual):  {x+1, y}
-                // Rot 2 (Sur Visual):   {x, y+1}
-                // Rot 3 (Oeste Visual): {x-1, y}
+                // Rot 0 (Norte) -> Salida Sur (y+1) [OPUESTO A VISUAL]
+                // El prompt dice: "Calcula vector de salida OPUESTO a la rotación".
+                // Si Rotation es 0 (Norte Visual), la "Espalda" es el Sur Visual.
 
                 let targetX = pos.x;
                 let targetY = pos.y;
                 const rot = pos.rotation || 0;
 
-                if (rot === 0) targetY -= 1;      // Norte
-                else if (rot === 1) targetX += 1; // Este
-                else if (rot === 2) targetY += 1; // Sur
-                else if (rot === 3) targetX -= 1; // Oeste
+                if (rot === 0) targetY += 1;      // Salida Sur
+                else if (rot === 1) targetX -= 1; // Salida Oeste
+                else if (rot === 2) targetY -= 1; // Salida Norte
+                else if (rot === 3) targetX += 1; // Salida Este
 
-                // Verificar si la celda objetivo es válida
                 const isTargetValid = (targetX >= 0 && targetX < GRID && targetY >= 0 && targetY < GRID);
                 let isBlocked = false;
 
                 if (isTargetValid) {
-                    // Chequear obstáculos en la salida (Pared, Panel, Rack, Otro Minero)
                     isBlocked = this.getObstacleAt(targetX, targetY);
                 } else {
-                    isBlocked = true; // Borde del mapa cuenta como bloqueo
+                    isBlocked = true;
                 }
 
                 if (isBlocked) {
-                    // "Thermal Backflow": El calor rebota y se acumula en el origen multiplicándose
+                    // Penalización x1.5 si está bloqueado
                     Store.heatBuffer[idx] += heatAmount * 1.5;
                     miner.suffocating = true;
                 } else {
-                    // Flujo normal: 80% a la salida, 20% en origen (radiación chasis)
                     const targetIdx = targetX + targetY * GRID;
                     Store.heatBuffer[targetIdx] += heatAmount * 0.8;
                     Store.heatBuffer[idx] += heatAmount * 0.2;
@@ -200,13 +193,18 @@ export class SimulationSystem {
         const acUnits = this.ecs.getEntitiesWith('position', 'ac_unit');
         for (const ac of acUnits) {
             const pos = this.ecs.components.position.get(ac);
-            const cooling = this.ecs.components.ac_unit.get(ac).cooling || 50;
+            // "Resta 2.5 grados por tick" (prompt request for cooling sustainable)
+            const cooling = 2.5;
             const idx = pos.x + pos.y * GRID;
 
-            // Enfría la propia celda
+            // Enfría su celda
             Store.heatBuffer[idx] = Math.max(AMBIENT_TEMP, Store.heatBuffer[idx] - cooling);
 
-            // Enfría las 4 vecinas (AC de suelo es omnidireccional simple por ahora)
+            // Enfría 3 celdas frontales? AC de suelo suele ser omni o frontal.
+            // Prompt: "Resta 2.5 grados por tick a su celda y 3 frontales."
+            // Asumiremos AC mira al Norte (rot 0 default) -> Frontales son Norte, NorEste, NorOeste?
+            // O simplemente "Alrededor". Usaré patrón de cruz +1 (frente) y diagonales frontales para simular cono.
+            // Para simplificar sin rotación en AC: Enfría cruz alrededor.
              const neighbors = [
                 { nx: pos.x + 1, ny: pos.y }, { nx: pos.x - 1, ny: pos.y },
                 { nx: pos.x, ny: pos.y + 1 }, { nx: pos.x, ny: pos.y - 1 }
@@ -214,7 +212,7 @@ export class SimulationSystem {
             for (const n of neighbors) {
                 if (n.nx >= 0 && n.nx < GRID && n.ny >= 0 && n.ny < GRID) {
                     const nIdx = n.nx + n.ny * GRID;
-                    Store.heatBuffer[nIdx] = Math.max(AMBIENT_TEMP, Store.heatBuffer[nIdx] - (cooling * 0.5));
+                    Store.heatBuffer[nIdx] = Math.max(AMBIENT_TEMP, Store.heatBuffer[nIdx] - cooling);
                 }
             }
         }

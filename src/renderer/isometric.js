@@ -1,6 +1,7 @@
 import { Store } from '../core/store.js';
 import { CONFIG } from '../core/config.js';
 import { Utils } from '../core/utils.js';
+import { Assets } from '../core/loader.js';
 
 export function gridToScreen(x, y) {
     return {
@@ -138,32 +139,36 @@ export function drawMiner(ctx, pos, forcedElevation = 0, grayscale = false) {
         if (pos.on) bodyColor = '#666';
     }
 
-    ctx.fillStyle = bodyColor;
-    ctx.fillRect(p.x - 8, drawY + 6, 16, 12);
-    
-    if (pos.on && !grayscale) {
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(p.x - 2, drawY + 8, 4, 4);
+    if (!grayscale && Assets.loaded && Assets.sprites['tower']) {
+        ctx.drawImage(Assets.sprites['tower'], p.x - 16, drawY - 10, 32, 32);
+    } else {
+        ctx.fillStyle = bodyColor;
+        ctx.fillRect(p.x - 8, drawY + 6, 16, 12);
 
-        const time = performance.now();
-        const ledColor = (Math.floor(time / 200) % 2 === 0) ? '#00ff00' : '#00aa00';
-        ctx.fillStyle = ledColor;
-        ctx.fillRect(p.x - 5, drawY + 8, 2, 2);
-    }
+        if (pos.on && !grayscale) {
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(p.x - 2, drawY + 8, 4, 4);
 
-    if (!grayscale) {
-        ctx.strokeStyle = '#ffff00';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        const cx = p.x; 
-        const cy = drawY + 6;
-        const rot = pos.rotation || 0;
-        
-        if (rot === 0) { ctx.moveTo(cx, cy); ctx.lineTo(cx + 6, cy + 3); } 
-        else if (rot === 1) { ctx.moveTo(cx, cy); ctx.lineTo(cx - 6, cy + 3); } 
-        else if (rot === 2) { ctx.moveTo(cx, cy); ctx.lineTo(cx - 6, cy - 3); } 
-        else if (rot === 3) { ctx.moveTo(cx, cy); ctx.lineTo(cx + 6, cy - 3); }
-        ctx.stroke();
+            const time = performance.now();
+            const ledColor = (Math.floor(time / 200) % 2 === 0) ? '#00ff00' : '#00aa00';
+            ctx.fillStyle = ledColor;
+            ctx.fillRect(p.x - 5, drawY + 8, 2, 2);
+        }
+
+        if (!grayscale) {
+            ctx.strokeStyle = '#ffff00';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            const cx = p.x;
+            const cy = drawY + 6;
+            const rot = pos.rotation || 0;
+
+            if (rot === 0) { ctx.moveTo(cx, cy); ctx.lineTo(cx + 6, cy + 3); }
+            else if (rot === 1) { ctx.moveTo(cx, cy); ctx.lineTo(cx - 6, cy + 3); }
+            else if (rot === 2) { ctx.moveTo(cx, cy); ctx.lineTo(cx - 6, cy - 3); }
+            else if (rot === 3) { ctx.moveTo(cx, cy); ctx.lineTo(cx + 6, cy - 3); }
+            ctx.stroke();
+        }
     }
 
     // Dibujar Flechas de Flujo de Aire (si estamos en modo térmico o construyendo)
@@ -176,21 +181,25 @@ export function drawRack(ctx, pos, grayscale = false) {
     const p = gridToScreen(pos.x, pos.y);
     const baseY = p.y + 10; 
     
-    const colorBase = grayscale ? '#222' : '#2d3748';
-    const colorPilar = grayscale ? '#333' : '#4a5568';
+    if (!grayscale && Assets.loaded && Assets.sprites['rack']) {
+        ctx.drawImage(Assets.sprites['rack'], p.x - 32, baseY - 110, 64, 115);
+    } else {
+        const colorBase = grayscale ? '#222' : '#2d3748';
+        const colorPilar = grayscale ? '#333' : '#4a5568';
 
-    ctx.fillStyle = colorBase;
-    ctx.fillRect(p.x - 20, baseY - 5, 40, 5); 
+        ctx.fillStyle = colorBase;
+        ctx.fillRect(p.x - 20, baseY - 5, 40, 5);
 
-    ctx.fillStyle = colorPilar;
-    ctx.fillRect(p.x - 20, baseY - 95, 4, 95); 
-    ctx.fillRect(p.x + 16, baseY - 95, 4, 95); 
+        ctx.fillStyle = colorPilar;
+        ctx.fillRect(p.x - 20, baseY - 95, 4, 95);
+        ctx.fillRect(p.x + 16, baseY - 95, 4, 95);
 
-    ctx.fillStyle = colorBase;
-    ctx.fillRect(p.x - 20, baseY - 35, 40, 2); 
-    ctx.fillRect(p.x - 20, baseY - 65, 40, 2); 
-    
-    ctx.fillRect(p.x - 20, baseY - 95, 40, 4); 
+        ctx.fillStyle = colorBase;
+        ctx.fillRect(p.x - 20, baseY - 35, 40, 2);
+        ctx.fillRect(p.x - 20, baseY - 65, 40, 2);
+
+        ctx.fillRect(p.x - 20, baseY - 95, 40, 4);
+    }
 }
 
 export function drawSocket(ctx, pos, grayscale = false) {
@@ -320,50 +329,56 @@ export function drawSubsoilCable(ctx, pos) {
 
 function drawAirflowArrow(ctx, x, y, rotation) {
     ctx.save();
-    ctx.translate(x, y + 6); // Centro visual del minero aprox
+    ctx.translate(x, y + 6);
 
-    // Rotación:
-    // 0: +X (Abajo-Derecha) -> Sale Aire Caliente hacia ATRÁS (-X, Arriba-Izquierda)
-    // Espera, la simulación dice:
-    // rot 0: BackX -= 1 (Arriba-Izquierda visual en ISO map?)
-    // gridToScreen: x-y -> +x en grid es +screenX, +screenY. -x es -screenX, -screenY.
-    // Entonces rot 0 (Back -x) es Arriba-Izquierda en pantalla.
+    // Ajuste de ángulos para que la flecha roja apunte a la "Espalda" (Salida de Calor)
+    // Coincidiendo con la lógica de simulación nueva:
+    // Rot 0: Visual Norte -> Espalda Sur (+Y en grid) -> Abajo-Izquierda en Pantalla?
+    // gridToScreen: +y -> +screenY, -screenX.
+    // +Y es Abajo-Izquierda.
+    // Ángulo +135 deg.
 
-    // Ángulos visuales aproximados para la flecha de SALIDA (Caliente)
-    // Rot 0 (Back -x): -135 deg (Arriba-Izq)
-    // Rot 1 (Back -y): -45 deg (Arriba-Der) -> -y en grid es +screenX, -screenY (Arriba-Der)
-    // Rot 2 (Back +x): +45 deg (Abajo-Der)
-    // Rot 3 (Back +y): +135 deg (Abajo-Izq)
+    // Rot 1: Visual Este -> Espalda Oeste (-X en grid) -> Arriba-Izquierda en Pantalla.
+    // -X es -screenX, -screenY.
+    // Ángulo -135 deg.
+
+    // Rot 2: Visual Sur -> Espalda Norte (-Y en grid) -> Arriba-Derecha en Pantalla.
+    // -Y es +screenX, -screenY.
+    // Ángulo -45 deg.
+
+    // Rot 3: Visual Oeste -> Espalda Este (+X en grid) -> Abajo-Derecha en Pantalla.
+    // +X es +screenX, +screenY.
+    // Ángulo +45 deg.
 
     let angle = 0;
-    if (rotation === 0) angle = -Math.PI * 0.75; // Arriba-Izq
-    else if (rotation === 1) angle = -Math.PI * 0.25; // Arriba-Der
-    else if (rotation === 2) angle = Math.PI * 0.25;  // Abajo-Der
-    else if (rotation === 3) angle = Math.PI * 0.75;  // Abajo-Izq
+    if (rotation === 0) angle = Math.PI * 0.75;   // Output: Sur (Abajo-Izq)
+    else if (rotation === 1) angle = -Math.PI * 0.75; // Output: Oeste (Arriba-Izq)
+    else if (rotation === 2) angle = -Math.PI * 0.25; // Output: Norte (Arriba-Der)
+    else if (rotation === 3) angle = Math.PI * 0.25;  // Output: Este (Abajo-Der)
 
     ctx.rotate(angle);
 
-    // Flecha Roja (Salida)
-    ctx.fillStyle = '#ff3333';
+    // Flecha Roja (Salida de Calor)
+    ctx.fillStyle = '#ef4444';
     ctx.strokeStyle = '#000';
     ctx.lineWidth = 1;
 
     ctx.beginPath();
     ctx.moveTo(0, 0);
-    ctx.lineTo(8, -3);
-    ctx.lineTo(8, 3);
+    ctx.lineTo(10, -4);
+    ctx.lineTo(10, 4);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
 
-    // Flecha Cian (Entrada - opuesta)
-    ctx.rotate(Math.PI); // Invertir 180
-    ctx.fillStyle = '#00ffff';
+    // Flecha Cian (Entrada de Aire - Opuesta)
+    ctx.rotate(Math.PI);
+    ctx.fillStyle = '#06b6d4';
 
     ctx.beginPath();
-    ctx.moveTo(12, 0); // Un poco más lejos
-    ctx.lineTo(4, -2);
-    ctx.lineTo(4, 2);
+    ctx.moveTo(14, 0);
+    ctx.lineTo(6, -3);
+    ctx.lineTo(6, 3);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
