@@ -1,35 +1,3 @@
-// Cargar persistencia si existe
-const savedControls = localStorage.getItem('CRYPTO_CONFIG_CONTROLS');
-const defaultControls = {
-    // Vistas (Mapas) - Usamos Function Keys para evitar conflictos
-    VIEW_NORMAL: 'F1',
-    VIEW_THERMAL: 'F2',
-    VIEW_ELECTRIC: 'F3',
-    VIEW_NOISE: 'F4',
-    VIEW_DIRT: 'F5',
-
-    // Capas (Layers)
-    LAYER_NORMAL: '1',
-    LAYER_SUBSOIL: '2',
-    LAYER_GROUND: '3',
-    LAYER_STRUCTURE: '4',
-
-    // Acciones
-    ROTATE: 'r',      // Ahora R es EXCLUSIVO para rotar
-    CYCLE_HW: 'Tab',
-    DELETE: 'Delete', // O Click Derecho
-
-    // Herramientas de Construcción
-    TOOL_MINER: 'm',
-    TOOL_RACK: 'k',
-    TOOL_CABLE: 'b',
-    TOOL_PANEL: 'p',
-    TOOL_CLEANER: 'l',
-    TOOL_CARPET: 'c',
-    TOOL_AC: 'a',      // AC de Suelo
-    TOOL_WALL_AC: 'w'  // AC de Pared
-};
-
 export const CONFIG = {
     // Dimensiones del Mundo
     GRID_SIZE: 12,
@@ -54,5 +22,33 @@ export const CONFIG = {
         BASE_FAIL_CHANCE: 0.005, // Probabilidad base de fallo al sobrecalentarse
         FIRE_CHANCE: 0.4         // Probabilidad de incendio de alfombra
     },
-    CONTROLS: savedControls ? JSON.parse(savedControls) : defaultControls
+    CONTROLS: {
+        // Vistas (Mapas) - Usamos Function Keys para evitar conflictos
+        VIEW_NORMAL: 'F1',
+        VIEW_THERMAL: 'F2',
+        VIEW_ELECTRIC: 'F3',
+        VIEW_NOISE: 'F4',
+        VIEW_DIRT: 'F5',
+
+        // Capas (Layers)
+        LAYER_NORMAL: '1',
+        LAYER_SUBSOIL: '2',
+        LAYER_GROUND: '3',
+        LAYER_STRUCTURE: '4',
+
+        // Acciones
+        ROTATE: 'r',      // Ahora R es EXCLUSIVO para rotar
+        CYCLE_HW: 'Tab',
+        DELETE: 'Delete', // O Click Derecho
+
+        // Herramientas de Construcción
+        TOOL_MINER: 'm',
+        TOOL_RACK: 'k',
+        TOOL_CABLE: 'b',
+        TOOL_PANEL: 'p',
+        TOOL_CLEANER: 'l',
+        TOOL_CARPET: 'c',
+        TOOL_AC: 'a',      // AC de Suelo
+        TOOL_WALL_AC: 'w'  // AC de Pared
+    }
 };

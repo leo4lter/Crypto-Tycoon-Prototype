@@ -140,9 +140,6 @@ export class SimulationSystem {
         const INSULATION_FACTOR = CONFIG.HEAT.INSULATION_FACTOR || 0.4;
 
         // 0. Copiar buffer anterior (paso de simulación)
-        // Aseguramos reinicio si hay NaN o corrupción, aunque set() copia valores.
-        // La difusión y disipación suavizan, pero si hay acumulación infinita,
-        // disipación debe ser suficiente.
         Store.heatBuffer.set(Store.heat);
 
         // 1. Inyectar calor (Miners) con lógica DIRECCIONAL (Backflow)
@@ -182,8 +179,8 @@ export class SimulationSystem {
                 }
 
                 if (isBlocked) {
-                    // Penalización x2.0 si está bloqueado (pared o borde)
-                    Store.heatBuffer[idx] += heatAmount * 2.0;
+                    // Penalización x1.5 si está bloqueado
+                    Store.heatBuffer[idx] += heatAmount * 1.5;
                     miner.suffocating = true;
                 } else {
                     const targetIdx = targetX + targetY * GRID;
